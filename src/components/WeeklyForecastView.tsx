@@ -74,10 +74,7 @@ export const WeeklyForecastView: React.FC<WeeklyForecastViewProps> = ({
     const csvContent = generateScheduleCSV(
       forecast.days,
       assignments,
-      currentProfile.name,
-      currentProfile.wageRates,
-      currentProfile.wageTypes,
-      currentProfile.fixedHoursConfig,
+      currentProfile,
       roster
     );
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

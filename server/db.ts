@@ -529,7 +529,20 @@ export function resetUserToDemoData(userId: string): UserRestaurantData {
   const db = loadDb();
   const user = db.users.find((u) => u.id === userId);
   const initial = createInitialUserData(user ? { name: user.restaurantName } : undefined);
+
+  // Clear every restaurant-scoped key for this user, not just the active-user pointer.
+  // Otherwise a previously-visited restaurant's stale (pre-reset) data is still sitting under
+  // its scoped key (`${userId}__${restaurantId}`), and simply switching to it and back silently
+  // resurrects everything the reset just wiped.
+  const scopedPrefix = `${userId}__`;
+  Object.keys(db.restaurantData).forEach((key) => {
+    if (key.startsWith(scopedPrefix)) {
+      delete db.restaurantData[key];
+    }
+  });
+
   db.restaurantData[userId] = initial;
+  db.restaurantData[getRestaurantStorageKey(userId, initial.profile.id)] = initial;
   saveDb(db);
   return initial;
 }

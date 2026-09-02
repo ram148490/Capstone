@@ -570,12 +570,20 @@ export function calculateDetailedLaborCost(
     }
   });
 
+  // Round the total once, then derive each half of a split from the rounded total instead of
+  // rounding each bucket independently -- otherwise tippedCost+nonTippedCost (or
+  // fixedLaborCost+variableLaborCost) can be off by a dollar or two from totalCost due to
+  // independent rounding of fractional cents (e.g. two buckets each round up).
+  const roundedTotalCost = Math.round(totalCost);
+  const roundedTippedCost = Math.round(tippedCost);
+  const roundedFixedLaborCost = Math.round(fixedLaborCost);
+
   return {
-    totalCost: Math.round(totalCost),
-    tippedCost: Math.round(tippedCost),
-    nonTippedCost: Math.round(nonTippedCost),
-    fixedLaborCost: Math.round(fixedLaborCost),
-    variableLaborCost: Math.round(variableLaborCost),
+    totalCost: roundedTotalCost,
+    tippedCost: roundedTippedCost,
+    nonTippedCost: roundedTotalCost - roundedTippedCost,
+    fixedLaborCost: roundedFixedLaborCost,
+    variableLaborCost: roundedTotalCost - roundedFixedLaborCost,
     roleCosts,
     roleHours,
     roleWageRates,

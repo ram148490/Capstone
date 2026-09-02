@@ -1,4 +1,5 @@
-import { LocalEvent, ShiftAssignment, DayForecast, ShiftForecast, RoleWageConfig, StaffRole, Employee } from '../types';
+import { LocalEvent, ShiftAssignment, DayForecast, ShiftForecast, RestaurantProfile, StaffRole, Employee } from '../types';
+import { isTippedRole } from './staffingEngine';
 
 const DEFAULT_WAGES: Record<string, number> = {
   servers: 16.0,
@@ -95,15 +96,11 @@ export function parseICalData(icsContent: string): Partial<LocalEvent>[] {
 export function generateScheduleCSV(
   days: DayForecast[],
   assignments: ShiftAssignment[] = [],
-  restaurantName: string,
-  wageRates?: RoleWageConfig,
-  wageTypes?: Record<string, 'TIPPED' | 'NON_TIPPED'>,
-  fixedHoursConfig?: {
-    prepCookFixedHours?: number;
-    closingDishwasherFixedHours?: number;
-  },
+  restaurant: RestaurantProfile,
   roster?: Employee[]
 ): string {
+  const wageRates = restaurant.wageRates;
+  const fixedHoursConfig = restaurant.fixedHoursConfig;
   const headers = [
     'Date',
     'Day',
@@ -157,9 +154,7 @@ export function generateScheduleCSV(
           hoursType = `Service + Fixed Post-Close Sanitation (+${closeExtra}h)`;
         }
 
-        const roleWageType =
-          wageTypes?.[role] ||
-          (['servers', 'bartenders', 'bussers'].includes(role) ? 'TIPPED' : 'NON_TIPPED');
+        const roleWageType = isTippedRole(role, restaurant) ? 'TIPPED' : 'NON_TIPPED';
         const roleWageTypeLabel =
           roleWageType === 'TIPPED' ? 'Tipped Direct Wage' : 'Non-Tipped Flat Wage';
 
@@ -178,8 +173,7 @@ export function generateScheduleCSV(
 
           if (emp) {
             const empWageType =
-              emp.wageType ||
-              (['servers', 'bartenders', 'bussers'].includes(emp.primaryRole) ? 'TIPPED' : 'NON_TIPPED');
+              emp.wageType || (isTippedRole(emp.primaryRole, restaurant) ? 'TIPPED' : 'NON_TIPPED');
             assignedWageType = empWageType === 'TIPPED' ? 'Tipped Direct Wage' : 'Non-Tipped Flat Wage';
             rate = emp.hourlyWage > 0 ? emp.hourlyWage : hourlyRate;
           } else if (assign.wageType) {
