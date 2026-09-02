@@ -1,0 +1,6 @@
+{
+  "name": "ShiftCast - Restaurant Volume & Staffing Forecaster",
+  "description": "Intelligent customer volume forecasting and shift-level staffing optimization for independent restaurants using historical sales and local calendar events.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
