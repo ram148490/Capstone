@@ -13,7 +13,8 @@ import {
   ShieldCheck,
   User,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
+import { validateForm } from '../../lib/formValidation';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -45,6 +46,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    const validationError = validateForm([
+      ...(mode === 'register'
+        ? [
+            { label: 'Manager name', value: name, required: true },
+            { label: 'Restaurant name', value: restaurantName, required: true },
+          ]
+        : []),
+      { label: 'Email address', value: email, required: true },
+      { label: 'Password', value: password, required: true },
+    ]);
+    if (validationError) {
+      setErrorMessage(validationError);
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setErrorMessage('Enter a valid email address.');
+      return;
+    }
+    if (mode === 'register' && password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -204,7 +229,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               {/* Form */}
-              <form onSubmit={handleSubmit} className="space-y-3.5">
+              <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
                 {mode === 'register' && (
                   <>
                     <div className="grid grid-cols-2 gap-2.5">

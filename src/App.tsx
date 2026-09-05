@@ -20,19 +20,19 @@ import {
   SAMPLE_STAFF_ROSTER,
   SAMPLE_ACCURACY_LOGS,
 } from './data/restaurantPresets';
-import { generateWeeklyForecast, getTargetWeekDates } from './utils/staffingEngine';
-import { Header } from './components/Header';
-import { WeeklyForecastView } from './components/WeeklyForecastView';
-import { HourlyRushView } from './components/HourlyRushView';
-import { LocalEventsRadar } from './components/LocalEventsRadar';
-import { HistoricalPOSDataView } from './components/HistoricalPOSDataView';
-import { TeamScheduleBuilder } from './components/TeamScheduleBuilder';
-import { ForecastAccuracyView } from './components/ForecastAccuracyView';
-import { ManagerBriefingModal } from './components/ManagerBriefingModal';
-import { RestaurantProfileModal } from './components/RestaurantProfileModal';
-import { AuthModal } from './components/AuthModal';
+import { generateWeeklyForecast, getTargetWeekDates } from './lib/staffingEngine';
+import { Header } from './components/layout/Header';
+import { WeeklyForecastView } from './components/views/WeeklyForecastView';
+import { HourlyRushView } from './components/views/HourlyRushView';
+import { LocalEventsRadar } from './components/views/LocalEventsRadar';
+import { HistoricalPOSDataView } from './components/views/HistoricalPOSDataView';
+import { TeamScheduleBuilder } from './components/views/TeamScheduleBuilder';
+import { ForecastAccuracyView } from './components/views/ForecastAccuracyView';
+import { ManagerBriefingModal } from './components/modals/ManagerBriefingModal';
+import { RestaurantProfileModal } from './components/modals/RestaurantProfileModal';
+import { AuthModal } from './components/modals/AuthModal';
 import { useAuth } from './context/AuthContext';
-import { restaurantApi } from './utils/apiClient';
+import { restaurantApi } from './services/apiClient';
 import { Sparkles, AlertCircle, CheckCircle, Database, ArrowUp } from 'lucide-react';
 
 export default function App() {
@@ -684,9 +684,9 @@ export default function App() {
 
       {/* Floating Notification Toast */}
       {notification && (
-        <div className="fixed bottom-6 right-6 z-50 animate-bounce">
+        <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 left-4 sm:left-auto z-50 animate-bounce">
           <div
-            className={`px-4 py-3 rounded-2xl shadow-xl border flex items-center gap-2.5 text-xs font-semibold ${
+            className={`sm:max-w-sm px-4 py-3 rounded-2xl shadow-xl border flex items-center gap-2.5 text-xs font-semibold ${
               notification.type === 'success'
                 ? 'bg-emerald-950 text-emerald-200 border-emerald-800'
                 : notification.type === 'error'
@@ -695,11 +695,11 @@ export default function App() {
             }`}
           >
             {notification.type === 'success' ? (
-              <CheckCircle className="w-4 h-4 text-emerald-400" />
+              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
             ) : notification.type === 'error' ? (
-              <AlertCircle className="w-4 h-4 text-rose-400" />
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
             ) : (
-              <Sparkles className="w-4 h-4 text-amber-400" />
+              <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
             )}
             <span>{notification.message}</span>
           </div>

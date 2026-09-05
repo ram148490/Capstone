@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HistoricalSalesRecord, RestaurantProfile } from '../types';
+import { HistoricalSalesRecord, RestaurantProfile } from '../../types';
 import {
   Layers,
   Upload,
@@ -12,7 +12,9 @@ import {
   Search,
   Filter,
   Trash2,
+  AlertCircle,
 } from 'lucide-react';
+import { validateForm } from '../../lib/formValidation';
 
 interface HistoricalPOSDataViewProps {
   historicalData: HistoricalSalesRecord[];
@@ -31,6 +33,8 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
 }) => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [addFormError, setAddFormError] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const [rawPOSText, setRawPOSText] = useState('');
   const [isParsingPOS, setIsParsingPOS] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
@@ -86,7 +90,11 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
   });
 
   const handleParsePOS = async () => {
-    if (!rawPOSText.trim()) return;
+    if (!rawPOSText.trim()) {
+      setImportError('Paste at least one row of POS data before importing.');
+      return;
+    }
+    setImportError(null);
     setIsParsingPOS(true);
 
     try {
@@ -139,10 +147,15 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
           onImportRecords(parsed);
           setShowImportModal(false);
           setRawPOSText('');
+        } else {
+          setImportError(
+            'Could not read any valid rows. Use: Date, Shift, Covers, Net Sales, Labor Cost — one shift per line.'
+          );
         }
       }
     } catch (e) {
       console.error(e);
+      setImportError('Import failed. Check your data format and try again.');
     } finally {
       setIsParsingPOS(false);
     }
@@ -150,6 +163,19 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
 
   const handleManualAdd = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const validationError = validateForm([
+      { label: 'Date', value: mDate, required: true },
+      { label: 'Covers', value: mCovers, required: true, nonNegative: true },
+      { label: 'Sales ($)', value: mSales, required: true, nonNegative: true },
+      { label: 'Labor cost ($)', value: mLaborCost, required: true, nonNegative: true },
+    ]);
+    if (validationError) {
+      setAddFormError(validationError);
+      return;
+    }
+    setAddFormError(null);
+
     const rec: HistoricalSalesRecord = {
       id: `h-manual-${Date.now()}`,
       date: mDate,
@@ -174,7 +200,7 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="space-y-1 max-w-2xl">
             <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-              <Layers className="w-5 h-5 text-amber-400" />
+              <Layers className="w-5 h-5 text-amber-400 shrink-0" />
               <span>Historical POS Sales & Guest Volume Engine</span>
             </h2>
             <p className="text-xs text-stone-300">
@@ -185,7 +211,10 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                setAddFormError(null);
+                setShowAddModal(true);
+              }}
               className="text-xs font-semibold bg-stone-800 hover:bg-stone-700 text-stone-200 px-3.5 py-2 rounded-xl border border-stone-700 flex items-center gap-1.5 transition-colors"
             >
               <Plus className="w-3.5 h-3.5 text-amber-400" />
@@ -193,7 +222,10 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
             </button>
 
             <button
-              onClick={() => setShowImportModal(true)}
+              onClick={() => {
+                setImportError(null);
+                setShowImportModal(true);
+              }}
               className="text-xs font-bold bg-amber-500 hover:bg-amber-400 text-stone-950 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors shadow"
             >
               <Upload className="w-4 h-4" />
@@ -242,16 +274,16 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             {/* Search */}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-none">
               <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
                 placeholder="Filter date, event, note..."
-                className="bg-stone-950 border border-stone-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-stone-200 placeholder-stone-500 focus:outline-none focus:ring-1 focus:ring-amber-500 w-44"
+                className="bg-stone-950 border border-stone-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-stone-200 placeholder-stone-500 focus:outline-none focus:ring-1 focus:ring-amber-500 w-full sm:w-44"
               />
             </div>
 
@@ -259,7 +291,7 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
             <select
               value={shiftFilter}
               onChange={(e) => setShiftFilter(e.target.value)}
-              className="bg-stone-950 border border-stone-800 rounded-xl px-3 py-1.5 text-xs text-stone-200 focus:outline-none"
+              className="bg-stone-950 border border-stone-800 rounded-xl px-3 py-1.5 text-xs text-stone-200 focus:outline-none shrink-0"
             >
               <option value="ALL">All Shifts</option>
               <option value="Lunch">Lunch Only</option>
@@ -351,7 +383,7 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
       {/* POS Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-400" />
@@ -371,6 +403,13 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
               weekly Excel/CSV export. Gemini AI will automatically parse covers, sales, shift
               dates, and labor costs into clean training records.
             </p>
+
+            {importError && (
+              <div className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-xs text-rose-300">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{importError}</span>
+              </div>
+            )}
 
             <textarea
               rows={8}
@@ -414,7 +453,7 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
       {/* Manual Add Record Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
               <h3 className="text-base font-bold text-white">Add Historical Shift Record</h3>
               <button
@@ -425,7 +464,14 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleManualAdd} className="space-y-3 text-xs">
+            <form onSubmit={handleManualAdd} className="space-y-3 text-xs" noValidate>
+              {addFormError && (
+                <div className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-rose-300">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{addFormError}</span>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-stone-300 font-semibold mb-1">Date</label>
@@ -477,6 +523,7 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
                   <label className="block text-stone-300 font-semibold mb-1">Covers</label>
                   <input
                     type="number"
+                    min="0"
                     required
                     value={mCovers}
                     onChange={(e) => setMCovers(Number(e.target.value))}
@@ -487,6 +534,7 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
                   <label className="block text-stone-300 font-semibold mb-1">Sales ($)</label>
                   <input
                     type="number"
+                    min="0"
                     required
                     value={mSales}
                     onChange={(e) => setMSales(Number(e.target.value))}
@@ -502,6 +550,7 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
                   </label>
                   <input
                     type="number"
+                    min="0"
                     required
                     value={mLaborCost}
                     onChange={(e) => setMLaborCost(Number(e.target.value))}

@@ -6,7 +6,7 @@ import {
   ShiftAssignment,
   RestaurantProfile,
   WageType,
-} from '../types';
+} from '../../types';
 import {
   Users,
   UserPlus,
@@ -24,8 +24,9 @@ import {
   Edit2,
   DollarSign,
 } from 'lucide-react';
-import { generateScheduleCSV, generateKitchenScheduleText } from '../utils/calendarUtils';
-import { getRoleShiftHours, isTippedRole } from '../utils/staffingEngine';
+import { generateScheduleCSV, generateKitchenScheduleText } from '../../lib/calendarUtils';
+import { getRoleShiftHours, isTippedRole } from '../../lib/staffingEngine';
+import { validateForm } from '../../lib/formValidation';
 
 interface TeamScheduleBuilderProps {
   roster: Employee[];
@@ -48,6 +49,7 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
 }) => {
   const [showAddEmpModal, setShowAddEmpModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [empFormError, setEmpFormError] = useState<string | null>(null);
 
   // New Employee Form
   const [empName, setEmpName] = useState('');
@@ -166,7 +168,20 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
 
   const handleCreateEmployee = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!empName.trim()) return;
+
+    const validationError = validateForm([
+      { label: 'Full name', value: empName, required: true },
+      { label: empWageType === 'TIPPED' ? 'Direct employer wage' : 'Flat hourly rate', value: empWage, required: true, positive: true },
+      ...(empWageType === 'TIPPED'
+        ? [{ label: 'Expected tips', value: empTipEstimate, nonNegative: true }]
+        : []),
+      { label: 'Max hours / week', value: empMaxHours, required: true, positive: true, max: 168 },
+    ]);
+    if (validationError) {
+      setEmpFormError(validationError);
+      return;
+    }
+    setEmpFormError(null);
 
     const newEmp: Employee = {
       id: `emp-${Date.now()}`,
@@ -218,9 +233,9 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
       <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="space-y-1 max-w-2xl">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                <Users className="w-5 h-5 text-amber-400" />
+                <Users className="w-5 h-5 text-amber-400 shrink-0" />
                 <span>Schedule Sync & Team Roster Builder</span>
               </h2>
               <span className="text-[10px] font-semibold uppercase tracking-wider bg-stone-800 text-stone-300 border border-stone-700 px-2 py-0.5 rounded-md">
@@ -243,7 +258,10 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
             </button>
 
             <button
-              onClick={() => setShowAddEmpModal(true)}
+              onClick={() => {
+                setEmpFormError(null);
+                setShowAddEmpModal(true);
+              }}
               className="text-xs font-semibold bg-stone-800 hover:bg-stone-700 text-stone-200 px-3 py-2 rounded-xl border border-stone-700 flex items-center gap-1.5 transition-colors"
             >
               <UserPlus className="w-3.5 h-3.5 text-blue-400" />
@@ -371,8 +389,8 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
               key={day.date}
               className="bg-stone-950/60 p-4 rounded-xl border border-stone-800/80 space-y-3"
             >
-              <div className="flex items-center justify-between pb-2 border-b border-stone-800/60">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 pb-2 border-b border-stone-800/60">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-bold text-white">
                     {day.dayOfWeek} ({day.date})
                   </span>
@@ -396,11 +414,11 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
                       key={shift.id}
                       className="bg-stone-900/80 p-3 rounded-lg border border-stone-800"
                     >
-                      <div className="flex items-center justify-between text-xs font-bold text-white mb-2">
-                        <span>
+                      <div className="flex items-center justify-between gap-2 text-xs font-bold text-white mb-2">
+                        <span className="min-w-0 truncate">
                           {shift.name} ({shift.startTime} - {shift.endTime})
                         </span>
-                        <span className="text-[11px] text-stone-400">
+                        <span className="text-[11px] text-stone-400 shrink-0">
                           {shiftAssigns.length} assigned
                         </span>
                       </div>
@@ -436,7 +454,7 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
       {/* Add Employee Modal */}
       {showAddEmpModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
               <h3 className="text-base font-bold text-white">Add Team Member</h3>
               <button
@@ -447,7 +465,14 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleCreateEmployee} className="space-y-3 text-xs">
+            <form onSubmit={handleCreateEmployee} className="space-y-3 text-xs" noValidate>
+              {empFormError && (
+                <div className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-rose-300">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{empFormError}</span>
+                </div>
+              )}
+
               <div>
                 <label className="block text-stone-300 font-semibold mb-1">Full Name</label>
                 <input
@@ -512,6 +537,7 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
                   <input
                     type="number"
                     step="0.5"
+                    min="0"
                     required
                     value={empWage}
                     onChange={(e) => setEmpWage(Number(e.target.value))}
@@ -532,6 +558,7 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
                     <input
                       type="number"
                       step="1"
+                      min="0"
                       value={empTipEstimate}
                       onChange={(e) => setEmpTipEstimate(Number(e.target.value))}
                       className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-200"
@@ -558,6 +585,8 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
                   <label className="block text-stone-300 font-semibold mb-1">Max Hours / Week</label>
                   <input
                     type="number"
+                    min="1"
+                    max="168"
                     required
                     value={empMaxHours}
                     onChange={(e) => setEmpMaxHours(Number(e.target.value))}
@@ -601,7 +630,7 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
       {/* Kitchen Pinboard Print Modal */}
       {showPrintModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Printer className="w-4 h-4 text-emerald-400" />

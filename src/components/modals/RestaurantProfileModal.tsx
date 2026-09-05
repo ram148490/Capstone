@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { RestaurantProfile, StaffRole } from '../types';
-import { Store, DollarSign, Users, Sliders, X, Check } from 'lucide-react';
+import { RestaurantProfile, StaffRole } from '../../types';
+import { Store, DollarSign, Users, Sliders, X, Check, AlertTriangle } from 'lucide-react';
+import { validateForm, FieldCheck } from '../../lib/formValidation';
 
 interface RestaurantProfileModalProps {
   profile: RestaurantProfile;
@@ -14,9 +15,43 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
   onClose,
 }) => {
   const [form, setForm] = useState<RestaurantProfile>({ ...profile });
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const wageChecks: FieldCheck[] = (Object.keys(form.wageRates) as StaffRole[]).map(
+      (role) => ({
+        label: `${role.replace('Cooks', ' cook')} wage rate`,
+        value: form.wageRates[role],
+        required: true,
+        nonNegative: true,
+      })
+    );
+
+    const validationError = validateForm([
+      { label: 'Restaurant name', value: form.name, required: true },
+      { label: 'Concept / cuisine', value: form.concept, required: true },
+      { label: 'Location / neighborhood', value: form.location, required: true },
+      { label: 'Average check size', value: form.averageCheckSize, required: true, positive: true },
+      { label: 'Target labor cost %', value: form.targetLaborPercentage, required: true, positive: true, max: 100 },
+      { label: 'Dining room seats', value: form.seatCount, required: true, positive: true },
+      ...(form.hasPatio ? [{ label: 'Patio seats', value: form.patioSeats, nonNegative: true }] : []),
+      ...wageChecks,
+      { label: 'Fixed prep hours', value: form.fixedHoursConfig?.prepCookFixedHours, nonNegative: true },
+      { label: 'Prep floor headcount', value: form.fixedHoursConfig?.fixedPrepCookHeadcount, positive: true },
+      { label: 'Closing sanitation hours', value: form.fixedHoursConfig?.closingDishwasherFixedHours, nonNegative: true },
+      { label: 'Closing dish headcount', value: form.fixedHoursConfig?.fixedClosingDishwasherHeadcount, positive: true },
+      { label: 'Covers / server', value: form.productivity.coversPerServer, required: true, positive: true },
+      { label: 'Covers / line cook', value: form.productivity.coversPerLineCook, required: true, positive: true },
+      { label: 'Covers / bartender', value: form.productivity.coversPerBartender, required: true, positive: true },
+    ]);
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+    setFormError(null);
+
     onSave(form);
     onClose();
   };
@@ -44,7 +79,14 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-4 text-xs">
+        <form onSubmit={handleSave} className="space-y-4 text-xs" noValidate>
+          {formError && (
+            <div className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-rose-300">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{formError}</span>
+            </div>
+          )}
+
           {/* General info */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -160,6 +202,7 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
               <input
                 type="number"
                 step="0.5"
+                min="0"
                 required
                 value={form.averageCheckSize}
                 onChange={(e) =>
@@ -176,6 +219,8 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
               <input
                 type="number"
                 step="0.5"
+                min="0"
+                max="100"
                 required
                 value={form.targetLaborPercentage}
                 onChange={(e) =>
@@ -191,6 +236,7 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
               </label>
               <input
                 type="number"
+                min="0"
                 required
                 value={form.seatCount}
                 onChange={(e) =>
@@ -217,6 +263,7 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                 <span className="text-stone-400">Patio Seats:</span>
                 <input
                   type="number"
+                  min="0"
                   value={form.patioSeats}
                   onChange={(e) =>
                     setForm({ ...form, patioSeats: parseInt(e.target.value) || 0 })
@@ -289,6 +336,7 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                         <input
                           type="number"
                           step="0.5"
+                          min="0"
                           value={form.wageRates[role]}
                           onChange={(e) =>
                             setForm({
@@ -494,6 +542,7 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                 <label className="block text-[11px] text-stone-400 mb-1">Covers / Server</label>
                 <input
                   type="number"
+                  min="1"
                   value={form.productivity.coversPerServer}
                   onChange={(e) =>
                     setForm({
@@ -512,6 +561,7 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                 <label className="block text-[11px] text-stone-400 mb-1">Covers / Line Cook</label>
                 <input
                   type="number"
+                  min="1"
                   value={form.productivity.coversPerLineCook}
                   onChange={(e) =>
                     setForm({
@@ -530,6 +580,7 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                 <label className="block text-[11px] text-stone-400 mb-1">Covers / Bartender</label>
                 <input
                   type="number"
+                  min="1"
                   value={form.productivity.coversPerBartender}
                   onChange={(e) =>
                     setForm({

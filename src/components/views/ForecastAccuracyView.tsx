@@ -4,13 +4,14 @@ import {
   WeeklyAccuracyMetric,
   RestaurantProfile,
   DayForecast,
-} from '../types';
+} from '../../types';
 import {
   calculateMAPE,
   calculateAccuracyPercentage,
   computeWeeklyAccuracyTrends,
   createShiftAccuracyLog,
-} from '../utils/accuracyEngine';
+} from '../../lib/accuracyEngine';
+import { validateForm } from '../../lib/formValidation';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -66,6 +67,7 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isBatchQuickFillOpen, setIsBatchQuickFillOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [logFormError, setLogFormError] = useState<string | null>(null);
   const [activeViewMode, setActiveViewMode] = useState<'trends' | 'shift_logs' | 'shift_breakdown'>('trends');
 
   // Form State for Single Shift Logging
@@ -164,6 +166,19 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
   // Handle Form Submit
   const handleSingleLogSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const validationError = validateForm([
+      { label: 'Shift date', value: formData.date, required: true },
+      { label: 'Predicted covers', value: formData.predictedCovers, required: true, positive: true },
+      { label: 'Actual covers delivered', value: formData.actualCovers, required: true, nonNegative: true },
+      { label: 'Actual shift revenue', value: formData.actualSales, nonNegative: true },
+    ]);
+    if (validationError) {
+      setLogFormError(validationError);
+      return;
+    }
+    setLogFormError(null);
+
     setIsSubmitting(true);
     try {
       const dateObj = new Date(formData.date + 'T12:00:00');
@@ -247,11 +262,11 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-stone-900 border border-stone-800 rounded-2xl p-5 shadow-sm">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold">
+            <div className="w-8 h-8 shrink-0 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold">
               <Target className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+              <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2 flex-wrap">
                 Forecast Accuracy & Shift Actuals Tracker
                 <span className="text-[11px] font-semibold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                   MAPE Algorithm
@@ -267,7 +282,10 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             id="btn-open-log-actual-modal"
-            onClick={() => setIsLogModalOpen(true)}
+            onClick={() => {
+              setLogFormError(null);
+              setIsLogModalOpen(true);
+            }}
             className="text-xs font-semibold px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer"
           >
             <PlusCircle className="w-4 h-4 stroke-[2.5]" />
@@ -457,7 +475,7 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
 
       {/* Sub-Navigation: View Modes & Week Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-800 pb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setActiveViewMode('trends')}
             className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
@@ -496,13 +514,13 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
         </div>
 
         {/* Week Range Filter */}
-        <div className="flex items-center gap-2">
-          <Filter className="w-3.5 h-3.5 text-stone-400" />
-          <span className="text-xs text-stone-400">Filter Week:</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <Filter className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+          <span className="text-xs text-stone-400 shrink-0">Filter Week:</span>
           <select
             value={selectedWeekKey}
             onChange={(e) => setSelectedWeekKey(e.target.value)}
-            className="bg-stone-900 text-stone-200 text-xs font-medium rounded-lg border border-stone-700 py-1.5 px-2.5 focus:ring-1 focus:ring-amber-500 focus:outline-none cursor-pointer"
+            className="min-w-0 flex-1 sm:flex-none truncate bg-stone-900 text-stone-200 text-xs font-medium rounded-lg border border-stone-700 py-1.5 px-2.5 focus:ring-1 focus:ring-amber-500 focus:outline-none cursor-pointer"
           >
             <option value="ALL">All Available Weeks ({weeklyTrends.length} Weeks)</option>
             {weeklyTrends.map((w) => (
@@ -529,7 +547,7 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
                   Tracking Mean Absolute Percentage Error (MAPE) and Overall Accuracy % across consecutive weeks.
                 </p>
               </div>
-              <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-3 text-xs flex-wrap">
                 <span className="flex items-center gap-1 text-emerald-400 font-semibold">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
                   Accuracy % (Higher is better)
@@ -620,7 +638,7 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
                   Visual volume comparison showing where shifts experienced walk-in surges or weather lulls.
                 </p>
               </div>
-              <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-3 text-xs flex-wrap">
                 <span className="flex items-center gap-1 text-amber-400 font-semibold">
                   <span className="w-2.5 h-2.5 rounded bg-amber-500 inline-block" />
                   Predicted Covers
@@ -882,7 +900,7 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
       {/* MODAL 1: LOG ACTUAL SHIFT COVERS */}
       {isLogModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-stone-800 pb-3">
               <div className="flex items-center gap-2">
                 <Target className="w-5 h-5 text-amber-400" />
@@ -896,7 +914,14 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSingleLogSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleSingleLogSubmit} className="space-y-4 text-xs" noValidate>
+              {logFormError && (
+                <div className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-rose-300">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{logFormError}</span>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-stone-300 font-medium mb-1">Shift Date</label>
@@ -958,6 +983,7 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
                   <span className="absolute left-2.5 top-2 text-stone-500">$</span>
                   <input
                     type="number"
+                    min="0"
                     placeholder={`e.g. ${formData.actualCovers * currentProfile.averageCheckSize}`}
                     value={formData.actualSales}
                     onChange={(e) => setFormData({ ...formData, actualSales: e.target.value })}
@@ -1040,7 +1066,7 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
       {/* MODAL 2: QUICK BATCH FILL MODAL */}
       {isBatchQuickFillOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-xs">
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-xs max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-stone-800 pb-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-amber-400" />

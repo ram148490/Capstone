@@ -1,1 +1,11 @@
 @import "tailwindcss";
+
+/* Cross-browser "hide the scrollbar but keep scrolling" used by horizontally
+   scrollable ribbons (day selectors, mobile nav tabs). */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

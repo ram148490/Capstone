@@ -7,7 +7,7 @@ import {
   RestaurantProfile,
   ShiftAssignment,
   Employee,
-} from '../types';
+} from '../../types';
 import {
   Sun,
   CloudRain,
@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   TrendingUp,
+  TrendingDown,
   DollarSign,
   Users,
   ChevronDown,
@@ -42,7 +43,8 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { generateScheduleCSV } from '../utils/calendarUtils';
+import { generateScheduleCSV } from '../../lib/calendarUtils';
+import { describeNetImpact } from '../../lib/format';
 
 interface WeeklyForecastViewProps {
   forecast: WeeklyForecastSummary;
@@ -159,7 +161,7 @@ export const WeeklyForecastView: React.FC<WeeklyForecastViewProps> = ({
     <div className="space-y-6 pb-12">
       {/* 1. Anomaly / Local-Event Alert Banner (as in Figure 2 of Project Plan) */}
       {featuredEvent && highImpactEventDay && (
-        <div className="bg-amber-950/40 border border-amber-500/40 rounded-xl px-4 py-3 text-xs flex items-center justify-between gap-3 text-amber-200 shadow-sm animate-fade-in">
+        <div className="bg-amber-950/40 border border-amber-500/40 rounded-xl px-4 py-3 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-amber-200 shadow-sm animate-fade-in">
           <div className="flex items-center gap-2.5">
             <span className="p-1 rounded-md bg-amber-500/20 text-amber-300">
               <AlertTriangle className="w-4 h-4 text-amber-400" />
@@ -174,7 +176,7 @@ export const WeeklyForecastView: React.FC<WeeklyForecastViewProps> = ({
           </div>
           <button
             onClick={() => setSelectedDayIndex(forecast.days.findIndex((d) => d.date === highImpactEventDay.date))}
-            className="text-[11px] font-semibold bg-amber-500 hover:bg-amber-400 text-stone-950 px-2.5 py-1 rounded-md transition-colors whitespace-nowrap cursor-pointer"
+            className="self-start sm:self-auto shrink-0 text-[11px] font-semibold bg-amber-500 hover:bg-amber-400 text-stone-950 px-2.5 py-1 rounded-md transition-colors whitespace-nowrap cursor-pointer"
           >
             View {highImpactEventDay.dayOfWeek} Shift
           </button>
@@ -352,16 +354,39 @@ export const WeeklyForecastView: React.FC<WeeklyForecastViewProps> = ({
               </div>
             </div>
 
-            {/* Elevated Primary KPI: Estimated Net Savings */}
-            <div className="bg-emerald-950/60 px-4 sm:px-5 py-2.5 rounded-xl border border-emerald-500/40 shadow-sm ring-1 ring-emerald-500/20">
-              <div className="text-[11px] text-emerald-300 uppercase tracking-wider font-bold flex items-center gap-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                Estimated Net Savings
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
-                +${forecast.totalEstimatedSavings.toLocaleString()}
-              </div>
-            </div>
+            {/* Elevated Primary KPI: Estimated Net Savings vs. Overage */}
+            {(() => {
+              const net = describeNetImpact(forecast.totalEstimatedSavings);
+              return (
+                <div
+                  className={`px-4 sm:px-5 py-2.5 rounded-xl border shadow-sm ring-1 ${
+                    net.isNegative
+                      ? 'bg-rose-950/60 border-rose-500/40 ring-rose-500/20'
+                      : 'bg-emerald-950/60 border-emerald-500/40 ring-emerald-500/20'
+                  }`}
+                >
+                  <div
+                    className={`text-[11px] uppercase tracking-wider font-bold flex items-center gap-1.5 ${
+                      net.isNegative ? 'text-rose-300' : 'text-emerald-300'
+                    }`}
+                  >
+                    {net.isNegative ? (
+                      <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+                    ) : (
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                    )}
+                    Estimated {net.noun}
+                  </div>
+                  <div
+                    className={`text-2xl sm:text-3xl font-black tracking-tight ${
+                      net.isNegative ? 'text-rose-400' : 'text-emerald-400'
+                    }`}
+                  >
+                    {net.amount}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
@@ -415,7 +440,7 @@ export const WeeklyForecastView: React.FC<WeeklyForecastViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex items-center gap-1.5 bg-stone-900 p-1 rounded-xl border border-stone-800">
+          <div className="flex flex-wrap items-center gap-1.5 bg-stone-900 p-1 rounded-xl border border-stone-800">
             <button
               onClick={() => setFilterMode('ALL')}
               className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
@@ -610,7 +635,7 @@ export const WeeklyForecastView: React.FC<WeeklyForecastViewProps> = ({
                             {shift.name}
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-bold text-white">
                                 {shift.startTime} – {shift.endTime}
                               </span>
@@ -893,9 +918,9 @@ export const WeeklyForecastView: React.FC<WeeklyForecastViewProps> = ({
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                             <span className="text-xs font-bold text-stone-200 flex items-center gap-1.5">
-                              <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+                              <TrendingUp className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                               Expected Hourly Cover Flow & Peak Windows:
                             </span>
                             <span className="text-[11px] text-stone-400">

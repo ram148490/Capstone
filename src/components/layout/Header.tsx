@@ -5,6 +5,7 @@ import {
   DollarSign,
   Users,
   ShieldCheck,
+  TrendingDown,
   Calendar,
   Layers,
   Sliders,
@@ -18,9 +19,10 @@ import {
   LogOut,
   Target,
 } from 'lucide-react';
-import { RestaurantProfile, WeeklyForecastSummary, WhatIfScenario } from '../types';
-import { RESTAURANT_PRESETS } from '../data/restaurantPresets';
-import { useAuth } from '../context/AuthContext';
+import { RestaurantProfile, WeeklyForecastSummary, WhatIfScenario } from '../../types';
+import { RESTAURANT_PRESETS } from '../../data/restaurantPresets';
+import { useAuth } from '../../context/AuthContext';
+import { describeNetImpact } from '../../lib/format';
 
 interface HeaderProps {
   currentProfile: RestaurantProfile;
@@ -100,6 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
   ];
 
   const activeSecondaryTool = MORE_TOOLS.find((t) => t.id === activeTab);
+  const netImpact = describeNetImpact(forecast.totalEstimatedSavings);
 
   return (
     <header className="bg-stone-900 text-stone-100 border-b border-stone-800 sticky top-0 z-40 shadow-md">
@@ -127,7 +130,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Header Right: Restaurant selector, Single Primary Action (AI Refine), Overflow Menu */}
         <div className="flex items-center gap-2.5 self-start md:self-center flex-wrap">
           {/* Preset Selector */}
-          <div className="relative inline-block text-left">
+          <div className="relative inline-block text-left min-w-0">
             <select
               id="restaurant-select"
               value={currentProfile.id}
@@ -135,7 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
                 const found = RESTAURANT_PRESETS.find((p) => p.id === e.target.value);
                 if (found) onSelectProfile(found);
               }}
-              className="bg-stone-800 text-stone-200 text-xs sm:text-sm font-medium rounded-lg border border-stone-700 py-1.5 pl-2.5 pr-7 focus:ring-2 focus:ring-amber-500 focus:outline-none cursor-pointer"
+              className="max-w-[52vw] sm:max-w-none bg-stone-800 text-stone-200 text-xs sm:text-sm font-medium rounded-lg border border-stone-700 py-1.5 pl-2.5 pr-7 focus:ring-2 focus:ring-amber-500 focus:outline-none cursor-pointer truncate"
             >
               {RESTAURANT_PRESETS.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -184,7 +187,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Overflow Dropdown */}
             {showOverflowMenu && (
               <div
-                className="absolute right-0 mt-1.5 w-64 bg-stone-900 border border-stone-800 rounded-xl shadow-2xl py-1.5 z-50 text-xs text-stone-300 divide-y divide-stone-800/80"
+                className="absolute right-0 mt-1.5 w-64 max-w-[calc(100vw-2rem)] bg-stone-900 border border-stone-800 rounded-xl shadow-2xl py-1.5 z-50 text-xs text-stone-300 divide-y divide-stone-800/80"
                 onMouseLeave={() => setShowOverflowMenu(false)}
               >
                 {/* Account / Session Header */}
@@ -313,14 +316,32 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="bg-stone-950 border-t border-stone-800/80 px-4 sm:px-6 lg:px-8 py-2">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-2 gap-x-6 text-xs">
           <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
-            {/* Spotlight Primary Metric: Estimated Net Savings */}
-            <div className="flex items-center gap-2 bg-emerald-950/70 border border-emerald-500/40 px-3 py-1 rounded-xl shadow-sm">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-wide">
-                Est. Net Savings:
+            {/* Spotlight Primary Metric: Estimated Net Savings vs. Overage */}
+            <div
+              className={`flex items-center gap-2 px-3 py-1 rounded-xl shadow-sm border ${
+                netImpact.isNegative
+                  ? 'bg-rose-950/70 border-rose-500/40'
+                  : 'bg-emerald-950/70 border-emerald-500/40'
+              }`}
+            >
+              {netImpact.isNegative ? (
+                <TrendingDown className="w-4 h-4 text-rose-400" />
+              ) : (
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              )}
+              <span
+                className={`text-[11px] font-bold uppercase tracking-wide ${
+                  netImpact.isNegative ? 'text-rose-300' : 'text-emerald-300'
+                }`}
+              >
+                Est. {netImpact.noun}:
               </span>
-              <span className="font-black text-emerald-300 text-base sm:text-lg tracking-tight">
-                +${forecast.totalEstimatedSavings.toLocaleString()}
+              <span
+                className={`font-black text-base sm:text-lg tracking-tight ${
+                  netImpact.isNegative ? 'text-rose-300' : 'text-emerald-300'
+                }`}
+              >
+                {netImpact.amount}
               </span>
             </div>
 
@@ -380,8 +401,8 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Main Navigation Tabs */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between border-t border-stone-800">
-        <div className="flex items-center space-x-2 sm:space-x-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-stone-800">
+        <div className="flex items-center gap-1 sm:gap-4 flex-wrap min-w-0">
           {/* Primary Core View: Weekly Shift Forecast (Visible by default) */}
           <button
             id="tab-forecast"
@@ -412,8 +433,11 @@ export const Header: React.FC<HeaderProps> = ({
             >
               {activeSecondaryTool ? (
                 <>
-                  <activeSecondaryTool.icon className="w-4 h-4 text-amber-400" />
-                  <span>More Tools: <strong className="text-white font-semibold">{activeSecondaryTool.name}</strong></span>
+                  <activeSecondaryTool.icon className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="max-w-[45vw] sm:max-w-none truncate">
+                    <span className="hidden sm:inline">More Tools: </span>
+                    <strong className="text-white font-semibold">{activeSecondaryTool.name}</strong>
+                  </span>
                 </>
               ) : (
                 <>
@@ -431,7 +455,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Tools Dropdown Menu */}
             {showToolsMenu && (
               <div
-                className="absolute left-0 mt-1 w-80 bg-stone-900 border border-stone-800 rounded-xl shadow-2xl py-2 px-1 z-50 divide-y divide-stone-800/60"
+                className="absolute left-0 mt-1 w-80 max-w-[calc(100vw-2rem)] bg-stone-900 border border-stone-800 rounded-xl shadow-2xl py-2 px-1 z-50 divide-y divide-stone-800/60"
                 onMouseLeave={() => setShowToolsMenu(false)}
               >
                 <div className="px-3 py-1.5 text-[11px] font-semibold text-stone-400 uppercase tracking-wider">
@@ -492,9 +516,10 @@ export const Header: React.FC<HeaderProps> = ({
         {activeTab !== 'forecast' && (
           <button
             onClick={() => setActiveTab('forecast')}
-            className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1.5 font-medium py-1 px-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-colors cursor-pointer"
+            className="shrink-0 text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1.5 font-medium py-1 px-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-colors cursor-pointer whitespace-nowrap"
           >
-            <span>← Return to Forecast</span>
+            <span className="sm:hidden">← Forecast</span>
+            <span className="hidden sm:inline">← Return to Forecast</span>
           </button>
         )}
       </div>

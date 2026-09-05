@@ -10,18 +10,18 @@ import {
   getEventMultiplier,
   getWeatherMultiplier,
   generateHourlyDistribution,
-} from '../src/utils/staffingEngine';
+} from '../src/lib/staffingEngine';
 import {
   calculateMAPE,
   calculateAccuracyPercentage,
   computeWeeklyAccuracyTrends,
   createShiftAccuracyLog,
-} from '../src/utils/accuracyEngine';
+} from '../src/lib/accuracyEngine';
 import {
   generateScheduleCSV,
   generateKitchenScheduleText,
   parseICalData,
-} from '../src/utils/calendarUtils';
+} from '../src/lib/calendarUtils';
 import {
   RESTAURANT_PRESETS,
   SAMPLE_HISTORICAL_DATA,

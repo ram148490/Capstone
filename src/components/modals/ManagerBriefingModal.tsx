@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DayForecast, RestaurantProfile, ManagerBriefingData } from '../types';
+import { DayForecast, RestaurantProfile, ManagerBriefingData } from '../../types';
 import { FileText, Sparkles, Check, Copy, Flame, Users, Wine, Clock, X } from 'lucide-react';
 
 interface ManagerBriefingModalProps {

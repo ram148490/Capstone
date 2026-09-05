@@ -1,14 +1,21 @@
 {
-  "name": "react-example",
+  "name": "shiftcast",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Customer volume forecasting and shift-level staffing optimization for independent restaurants.",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "dev": "tsx server/index.ts",
+    "build": "vite build && esbuild server/index.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --define:process.env.NODE_ENV=\\\"production\\\" --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
-    "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit",
+    "test": "tsx tests/test-engine.ts",
+    "test:scoping": "tsx tests/test-scoping.ts",
+    "test:http": "tsx tests/test-http.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

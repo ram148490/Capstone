@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { WeeklyForecastSummary, RestaurantProfile, DayForecast } from '../types';
+import { WeeklyForecastSummary, RestaurantProfile, DayForecast } from '../../types';
 import { TrendingUp, Users, Clock, AlertTriangle, Sparkles, Flame, Wine } from 'lucide-react';
 
 interface HourlyRushViewProps {
@@ -85,7 +85,7 @@ export const HourlyRushView: React.FC<HourlyRushViewProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-4 text-xs flex-wrap">
             <div className="bg-stone-950 px-3 py-1.5 rounded-lg border border-stone-800">
               <span className="text-stone-400">Total Day Covers:</span>{' '}
               <strong className="text-amber-300 text-sm">{selectedDay.covers}</strong>
@@ -112,8 +112,8 @@ export const HourlyRushView: React.FC<HourlyRushViewProps> = ({
                 key={shift.id}
                 className="bg-stone-950/70 border border-stone-800/80 rounded-xl p-4.5 space-y-4"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+                  <div className="flex items-center gap-2.5 flex-wrap">
                     <span className="text-sm font-bold text-white bg-stone-900 px-3 py-1 rounded-lg border border-stone-800">
                       {shift.name} Service ({shift.startTime} - {shift.endTime})
                     </span>

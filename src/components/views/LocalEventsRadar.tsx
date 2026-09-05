@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LocalEvent, EventCategory, RestaurantProfile } from '../types';
+import { LocalEvent, EventCategory, RestaurantProfile } from '../../types';
 import {
   Sparkles,
   Calendar,
@@ -15,8 +15,10 @@ import {
   Sliders,
   ExternalLink,
   MapPin,
+  AlertCircle,
 } from 'lucide-react';
-import { parseICalData } from '../utils/calendarUtils';
+import { parseICalData } from '../../lib/calendarUtils';
+import { validateForm } from '../../lib/formValidation';
 
 interface LocalEventsRadarProps {
   events: LocalEvent[];
@@ -39,6 +41,9 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showICalModal, setShowICalModal] = useState(false);
+  const [addEventError, setAddEventError] = useState<string | null>(null);
+  const [icalError, setIcalError] = useState<string | null>(null);
+  const [discoverError, setDiscoverError] = useState<string | null>(null);
   const [locationQuery, setLocationQuery] = useState(currentProfile.location);
 
   // New Event Form State
@@ -73,7 +78,17 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
 
   const handleCreateEvent = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim()) return;
+
+    const validationError = validateForm([
+      { label: 'Event title', value: newTitle, required: true },
+      { label: 'Date', value: newDate, required: true },
+      { label: 'Volume multiplier', value: newMultiplier, positive: true },
+    ]);
+    if (validationError) {
+      setAddEventError(validationError);
+      return;
+    }
+    setAddEventError(null);
 
     const event: LocalEvent = {
       id: `evt-${Date.now()}`,
@@ -100,8 +115,16 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
   };
 
   const handleImportICal = () => {
-    if (!icsRawText.trim()) return;
+    if (!icsRawText.trim()) {
+      setIcalError('Paste the contents of an .ics calendar file before importing.');
+      return;
+    }
     const parsed = parseICalData(icsRawText);
+    if (parsed.length === 0) {
+      setIcalError('No calendar events found. Make sure you pasted a valid VCALENDAR / VEVENT block.');
+      return;
+    }
+    setIcalError(null);
     parsed.forEach((p) => {
       if (p.title && p.date) {
         onAddEvent({
@@ -131,7 +154,7 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="space-y-1 max-w-2xl">
             <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-amber-400" />
+              <Sparkles className="w-5 h-5 text-amber-400 shrink-0" />
               <span>Local Calendar Integrations & Event Radar</span>
             </h2>
             <p className="text-xs text-stone-300">
@@ -143,7 +166,10 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
           <div className="flex items-center gap-2 flex-wrap">
             <button
               id="btn-add-event"
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                setAddEventError(null);
+                setShowAddModal(true);
+              }}
               className="text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-stone-950 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors shadow"
             >
               <Plus className="w-4 h-4" />
@@ -152,7 +178,10 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
 
             <button
               id="btn-import-ical"
-              onClick={() => setShowICalModal(true)}
+              onClick={() => {
+                setIcalError(null);
+                setShowICalModal(true);
+              }}
               className="text-xs font-semibold bg-stone-800 hover:bg-stone-700 text-stone-200 px-3.5 py-2 rounded-xl border border-stone-700 flex items-center gap-1.5 transition-colors"
             >
               <Upload className="w-3.5 h-3.5 text-blue-400" />
@@ -162,21 +191,37 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
         </div>
 
         {/* AI Discovery Search Bar */}
-        <div className="pt-4 border-t border-stone-800/80 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="pt-4 border-t border-stone-800/80 flex flex-col sm:flex-row sm:items-start gap-3">
           <div className="flex-1 relative">
-            <MapPin className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <MapPin className="w-4 h-4 text-stone-400 absolute left-3.5 top-[1.15rem] -translate-y-1/2" />
             <input
               type="text"
               value={locationQuery}
-              onChange={(e) => setLocationQuery(e.target.value)}
+              onChange={(e) => {
+                setLocationQuery(e.target.value);
+                if (discoverError) setDiscoverError(null);
+              }}
               placeholder="Enter neighborhood / city (e.g. Austin Downtown, Chicago Lincoln Park, Seattle Ballard)..."
               className="w-full bg-stone-950 border border-stone-800 rounded-xl pl-10 pr-4 py-2 text-xs text-stone-200 placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
             />
+            {discoverError && (
+              <p className="mt-1 text-[11px] text-rose-400 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 shrink-0" />
+                {discoverError}
+              </p>
+            )}
           </div>
 
           <button
             id="btn-ai-discover"
-            onClick={() => onDiscoverEventsAI(locationQuery)}
+            onClick={() => {
+              if (!locationQuery.trim()) {
+                setDiscoverError('Enter a neighborhood or city to search for events.');
+                return;
+              }
+              setDiscoverError(null);
+              onDiscoverEventsAI(locationQuery);
+            }}
             disabled={isDiscoveringAI}
             className={`text-xs font-bold px-4 py-2 rounded-xl flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
               isDiscoveringAI
@@ -237,7 +282,7 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
                 </div>
 
                 {/* Enable/Disable Toggle Switch */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => onToggleEvent(evt.id)}
                     className={`w-9 h-5 rounded-full transition-colors relative flex items-center p-0.5 ${
@@ -300,7 +345,7 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
       {/* Add Custom Event Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Plus className="w-4 h-4 text-amber-400" />
@@ -314,7 +359,14 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleCreateEvent} className="space-y-3.5 text-xs">
+            <form onSubmit={handleCreateEvent} className="space-y-3.5 text-xs" noValidate>
+              {addEventError && (
+                <div className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-rose-300">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{addEventError}</span>
+                </div>
+              )}
+
               <div>
                 <label className="block text-stone-300 font-semibold mb-1">
                   Event Title *
@@ -457,7 +509,7 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
       {/* iCal Import Modal */}
       {showICalModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Upload className="w-4 h-4 text-blue-400" />
@@ -475,6 +527,13 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
               Paste the raw text of an .ics calendar file from local sports teams, concert venues,
               or convention center calendars to extract upcoming events automatically.
             </p>
+
+            {icalError && (
+              <div className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-xs text-rose-300">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{icalError}</span>
+              </div>
+            )}
 
             <textarea
               rows={8}
