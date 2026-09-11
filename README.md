@@ -269,6 +269,24 @@ When `GEMINI_API_KEY` is present, the AI endpoints layer a model pass on top of 
 narrative insight and briefings — but the deterministic engine is always the source of
 truth for the numbers.
 
+> **Note — the engine's prose is not computed.** In `generateWeeklyForecast()` the
+> numeric outputs (covers, per-shift headcount, labor cost, `costSavings`,
+> `understaffingRisk`, weekly totals) are all derived from the inputs. The prose fields
+> are not:
+>
+> - `executiveInsight` and the four `operationalAdvice` cards are **hard-coded demo
+>   copy** — the same strings regardless of restaurant, data, or scenario. Their embedded
+>   figures ("$840", "$420", "reduces labor % … to 28.5%") are illustrative and will not
+>   match the computed totals for any given forecast.
+> - `riskReason`, `shiftNotes`, `weatherImpact` and `eventsImpact` are **fixed-phrase
+>   templates** — structurally accurate (they name the real event / condition) but the
+>   wording is canned, not generated.
+> - `totalPreventedStockoutOrDelayRiskHours` is a constant (`14`).
+>
+> Read the KPI cards, the covers chart, and the staffing tables as real output; treat the
+> narrative as placeholder. Wiring these to the computed data (or to the Gemini pass) is
+> open work.
+
 ---
 
 ## Data & persistence

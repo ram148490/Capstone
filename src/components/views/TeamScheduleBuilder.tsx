@@ -27,6 +27,7 @@ import {
 import { generateScheduleCSV, generateKitchenScheduleText } from '../../lib/calendarUtils';
 import { getRoleShiftHours, isTippedRole } from '../../lib/staffingEngine';
 import { validateForm } from '../../lib/formValidation';
+import { useModalDialog } from '../../lib/useModalDialog';
 
 interface TeamScheduleBuilderProps {
   roster: Employee[];
@@ -49,6 +50,8 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
 }) => {
   const [showAddEmpModal, setShowAddEmpModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const addEmpModalRef = useModalDialog(() => setShowAddEmpModal(false), showAddEmpModal);
+  const printModalRef = useModalDialog(() => setShowPrintModal(false), showPrintModal);
   const [empFormError, setEmpFormError] = useState<string | null>(null);
 
   // New Employee Form
@@ -225,6 +228,7 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -361,11 +365,13 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => onDeleteEmployee(emp.id)}
                     className="text-stone-500 hover:text-rose-400 p-1 text-xs"
                     title="Remove from roster"
+                    aria-label={`Remove ${emp.name} from roster`}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -454,28 +460,38 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
       {/* Add Employee Modal */}
       {showAddEmpModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div
+            ref={addEmpModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-emp-title"
+            tabIndex={-1}
+            className="bg-stone-900 border border-stone-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto outline-none"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
-              <h3 className="text-base font-bold text-white">Add Team Member</h3>
+              <h3 id="add-emp-title" className="text-base font-bold text-white">Add Team Member</h3>
               <button
+                type="button"
                 onClick={() => setShowAddEmpModal(false)}
+                aria-label="Close"
                 className="text-stone-400 hover:text-white text-sm"
               >
-                ✕
+                <span aria-hidden="true">✕</span>
               </button>
             </div>
 
             <form onSubmit={handleCreateEmployee} className="space-y-3 text-xs" noValidate>
               {empFormError && (
-                <div className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-rose-300">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-rose-300">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
                   <span>{empFormError}</span>
                 </div>
               )}
 
               <div>
-                <label className="block text-stone-300 font-semibold mb-1">Full Name</label>
+                <label htmlFor="emp-name" className="block text-stone-300 font-semibold mb-1">Full Name</label>
                 <input
+                  id="emp-name"
                   type="text"
                   required
                   value={empName}
@@ -487,8 +503,9 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">Primary Role</label>
+                  <label htmlFor="emp-role" className="block text-stone-300 font-semibold mb-1">Primary Role</label>
                   <select
+                    id="emp-role"
                     value={empRole}
                     onChange={(e) => handleRoleChange(e.target.value as StaffRole)}
                     className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-200"
@@ -509,8 +526,9 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">Wage Classification</label>
+                  <label htmlFor="emp-wagetype" className="block text-stone-300 font-semibold mb-1">Wage Classification</label>
                   <select
+                    id="emp-wagetype"
                     value={empWageType}
                     onChange={(e) => {
                       const newType = e.target.value as WageType;
@@ -531,10 +549,11 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">
+                  <label htmlFor="emp-wage" className="block text-stone-300 font-semibold mb-1">
                     {empWageType === 'TIPPED' ? 'Direct Employer Wage ($/hr)' : 'Flat Hourly Rate ($/hr)'}
                   </label>
                   <input
+                    id="emp-wage"
                     type="number"
                     step="0.5"
                     min="0"
@@ -552,10 +571,11 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
 
                 {empWageType === 'TIPPED' ? (
                   <div>
-                    <label className="block text-stone-300 font-semibold mb-1">
+                    <label htmlFor="emp-tips" className="block text-stone-300 font-semibold mb-1">
                       Expected Tips ($/hr, paid by guests)
                     </label>
                     <input
+                      id="emp-tips"
                       type="number"
                       step="1"
                       min="0"
@@ -569,9 +589,10 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-stone-300 font-semibold mb-1">Phone Number</label>
+                    <label htmlFor="emp-phone" className="block text-stone-300 font-semibold mb-1">Phone Number</label>
                     <input
-                      type="text"
+                      id="emp-phone"
+                      type="tel"
                       value={empPhone}
                       onChange={(e) => setEmpPhone(e.target.value)}
                       className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-200"
@@ -582,8 +603,9 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">Max Hours / Week</label>
+                  <label htmlFor="emp-maxhours" className="block text-stone-300 font-semibold mb-1">Max Hours / Week</label>
                   <input
+                    id="emp-maxhours"
                     type="number"
                     min="1"
                     max="168"
@@ -596,9 +618,10 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
 
                 {empWageType === 'TIPPED' && (
                   <div>
-                    <label className="block text-stone-300 font-semibold mb-1">Phone Number</label>
+                    <label htmlFor="emp-phone" className="block text-stone-300 font-semibold mb-1">Phone Number</label>
                     <input
-                      type="text"
+                      id="emp-phone"
+                      type="tel"
                       value={empPhone}
                       onChange={(e) => setEmpPhone(e.target.value)}
                       className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-200"
@@ -630,23 +653,33 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
       {/* Kitchen Pinboard Print Modal */}
       {showPrintModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div
+            ref={printModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pinboard-title"
+            tabIndex={-1}
+            className="bg-stone-900 border border-stone-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto outline-none"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Printer className="w-4 h-4 text-emerald-400" />
+              <h3 id="pinboard-title" className="text-base font-bold text-white flex items-center gap-2">
+                <Printer className="w-4 h-4 text-emerald-400" aria-hidden="true" />
                 <span>Kitchen Pinboard & Text Schedule</span>
               </h3>
               <button
+                type="button"
                 onClick={() => setShowPrintModal(false)}
+                aria-label="Close"
                 className="text-stone-400 hover:text-white text-sm"
               >
-                ✕
+                <span aria-hidden="true">✕</span>
               </button>
             </div>
 
             <textarea
               readOnly
               rows={14}
+              aria-label="Generated text schedule"
               value={generateKitchenScheduleText(
                 forecast.days,
                 assignments,
@@ -660,15 +693,21 @@ export const TeamScheduleBuilder: React.FC<TeamScheduleBuilderProps> = ({
                 Copy text to post in staff group chat or pin to kitchen board.
               </span>
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(
-                    generateKitchenScheduleText(
-                      forecast.days,
-                      assignments,
-                      currentProfile.name
-                    )
+                onClick={async () => {
+                  const text = generateKitchenScheduleText(
+                    forecast.days,
+                    assignments,
+                    currentProfile.name
                   );
-                  alert('Schedule copied to clipboard!');
+                  try {
+                    if (!navigator.clipboard) throw new Error('Clipboard API unavailable');
+                    await navigator.clipboard.writeText(text);
+                    alert('Schedule copied to clipboard!');
+                  } catch {
+                    alert(
+                      'Could not copy automatically. Select the text above and copy it manually.'
+                    );
+                  }
                 }}
                 className="px-4 py-2 rounded-xl bg-emerald-500 text-stone-950 font-bold hover:bg-emerald-400 text-xs"
               >

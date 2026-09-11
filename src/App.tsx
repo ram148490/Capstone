@@ -375,6 +375,28 @@ export default function App() {
     }
   };
 
+  // Bulk-add Local Events (e.g. an .ics calendar import with several VEVENTs).
+  // Must be a single state update + single save: calling handleAddEvent in a loop
+  // makes every iteration close over the same stale `localEvents`, so only one
+  // event survives and N redundant saves race.
+  const handleImportEvents = async (events: LocalEvent[]) => {
+    if (!events || events.length === 0) return;
+    const updated = [...events, ...localEvents];
+    setLocalEvents(updated);
+    showToast(
+      'success',
+      `Imported ${events.length} event${events.length === 1 ? '' : 's'} to database.`
+    );
+    try {
+      setIsSyncing(true);
+      await restaurantApi.saveEvents(updated);
+    } catch (err) {
+      console.error('Error importing events:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Delete Local Event
   const handleDeleteEvent = async (eventId: string) => {
     const updated = localEvents.filter((e) => e.id !== eventId);
@@ -682,11 +704,17 @@ export default function App() {
         onResetDefaults={handleResetDefaults}
       />
 
-      {/* Floating Notification Toast */}
-      {notification && (
-        <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 left-4 sm:left-auto z-50 animate-bounce">
+      {/* Floating Notification Toast. The live-region wrapper is always mounted so
+          assistive tech announces each new message; only the visible card toggles. */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 left-4 sm:left-auto z-50"
+      >
+        {notification && (
           <div
-            className={`sm:max-w-sm px-4 py-3 rounded-2xl shadow-xl border flex items-center gap-2.5 text-xs font-semibold ${
+            className={`animate-bounce sm:max-w-sm px-4 py-3 rounded-2xl shadow-xl border flex items-center gap-2.5 text-xs font-semibold ${
               notification.type === 'success'
                 ? 'bg-emerald-950 text-emerald-200 border-emerald-800'
                 : notification.type === 'error'
@@ -695,16 +723,16 @@ export default function App() {
             }`}
           >
             {notification.type === 'success' ? (
-              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
             ) : notification.type === 'error' ? (
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" aria-hidden="true" />
             ) : (
-              <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+              <Sparkles className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" />
             )}
             <span>{notification.message}</span>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Main View Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12">
@@ -731,6 +759,7 @@ export default function App() {
             events={localEvents}
             onToggleEvent={handleToggleEvent}
             onAddEvent={handleAddEvent}
+            onImportEvents={handleImportEvents}
             onDeleteEvent={handleDeleteEvent}
             currentProfile={currentProfile}
             onDiscoverEventsAI={handleDiscoverEventsAI}

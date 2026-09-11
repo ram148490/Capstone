@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { DayForecast, RestaurantProfile, ManagerBriefingData } from '../../types';
 import { FileText, Sparkles, Check, Copy, Flame, Users, Wine, Clock, X } from 'lucide-react';
+import { useModalDialog } from '../../lib/useModalDialog';
 
 interface ManagerBriefingModalProps {
   day: DayForecast;
@@ -42,6 +43,7 @@ export const ManagerBriefingModal: React.FC<ManagerBriefingModalProps> = ({
 
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [copied, setCopied] = useState(false);
+  const panelRef = useModalDialog(onClose);
 
   const handleGenerateAIBriefing = async () => {
     setIsLoadingAI(true);
@@ -65,7 +67,7 @@ export const ManagerBriefingModal: React.FC<ManagerBriefingModalProps> = ({
     }
   };
 
-  const copyBriefingText = () => {
+  const copyBriefingText = async () => {
     const text = `PRE-SHIFT GM BRIEFING - ${restaurantProfile.name.toUpperCase()}
 Date: ${day.dayOfWeek} (${day.date}) | Covers: ${day.covers} | Est Sales: $${day.projectedSales.toLocaleString()}
 Events: ${day.eventsImpact} | Weather: ${day.weatherImpact}
@@ -88,21 +90,33 @@ ${briefing.bohDirectives.map((b) => `• ${b}`).join('\n')}
 💡 UPSELL FOCUS:
 ${briefing.upsellFocus}
 `;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      if (!navigator.clipboard) throw new Error('Clipboard API unavailable');
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      alert('Could not copy automatically. Select and copy the briefing text manually.');
+    }
   };
 
   return (
     <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="briefing-modal-title"
+        tabIndex={-1}
+        className="bg-stone-900 border border-stone-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto outline-none"
+      >
         <div className="flex items-center justify-between pb-3 border-b border-stone-800">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              <FileText className="w-4 h-4" />
+              <FileText className="w-4 h-4" aria-hidden="true" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">
+              <h3 id="briefing-modal-title" className="text-base font-bold text-white">
                 Daily Manager Pre-Shift Briefing
               </h3>
               <p className="text-xs text-stone-400">
@@ -122,10 +136,12 @@ ${briefing.upsellFocus}
               <span>{isLoadingAI ? 'Generating with AI...' : 'Refresh with AI'}</span>
             </button>
             <button
+              type="button"
               onClick={onClose}
+              aria-label="Close briefing"
               className="p-1 text-stone-400 hover:text-white rounded-lg hover:bg-stone-800"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         </div>

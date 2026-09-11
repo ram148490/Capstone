@@ -19,11 +19,13 @@ import {
 } from 'lucide-react';
 import { parseICalData } from '../../lib/calendarUtils';
 import { validateForm } from '../../lib/formValidation';
+import { useModalDialog } from '../../lib/useModalDialog';
 
 interface LocalEventsRadarProps {
   events: LocalEvent[];
   onToggleEvent: (eventId: string) => void;
   onAddEvent: (event: LocalEvent) => void;
+  onImportEvents: (events: LocalEvent[]) => void;
   onDeleteEvent: (eventId: string) => void;
   currentProfile: RestaurantProfile;
   onDiscoverEventsAI: (location: string) => Promise<void>;
@@ -34,6 +36,7 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
   events,
   onToggleEvent,
   onAddEvent,
+  onImportEvents,
   onDeleteEvent,
   currentProfile,
   onDiscoverEventsAI,
@@ -41,6 +44,8 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showICalModal, setShowICalModal] = useState(false);
+  const addModalRef = useModalDialog(() => setShowAddModal(false), showAddModal);
+  const icalModalRef = useModalDialog(() => setShowICalModal(false), showICalModal);
   const [addEventError, setAddEventError] = useState<string | null>(null);
   const [icalError, setIcalError] = useState<string | null>(null);
   const [discoverError, setDiscoverError] = useState<string | null>(null);
@@ -124,25 +129,31 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
       setIcalError('No calendar events found. Make sure you pasted a valid VCALENDAR / VEVENT block.');
       return;
     }
+
+    const imported: LocalEvent[] = parsed
+      .filter((p): p is Partial<LocalEvent> & { title: string; date: string } => !!p.title && !!p.date)
+      .map((p) => ({
+        id: p.id || `ics-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+        title: p.title,
+        date: p.date,
+        category: p.category || 'COMMUNITY',
+        venue: p.venue || 'Local Venue',
+        volumeMultiplier: p.volumeMultiplier || 1.25,
+        affectedShifts: p.affectedShifts || ['Dinner'],
+        rushWindow: p.rushWindow || 'Expected evening rush',
+        description: p.description || p.title,
+        staffingTip: 'Added from calendar import',
+        isEnabled: true,
+        isUserCustom: true,
+      }));
+
+    if (imported.length === 0) {
+      setIcalError('Calendar block parsed, but no events had both a title and a start date.');
+      return;
+    }
+
     setIcalError(null);
-    parsed.forEach((p) => {
-      if (p.title && p.date) {
-        onAddEvent({
-          id: p.id || `ics-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-          title: p.title,
-          date: p.date,
-          category: p.category || 'COMMUNITY',
-          venue: p.venue || 'Local Venue',
-          volumeMultiplier: p.volumeMultiplier || 1.25,
-          affectedShifts: p.affectedShifts || ['Dinner'],
-          rushWindow: p.rushWindow || 'Expected evening rush',
-          description: p.description || p.title,
-          staffingTip: 'Added from calendar import',
-          isEnabled: true,
-          isUserCustom: true,
-        });
-      }
-    });
+    onImportEvents(imported);
     setIcsRawText('');
     setShowICalModal(false);
   };
@@ -284,6 +295,10 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
                 {/* Enable/Disable Toggle Switch */}
                 <div className="flex items-center gap-2 shrink-0">
                   <button
+                    type="button"
+                    role="switch"
+                    aria-checked={evt.isEnabled}
+                    aria-label={`Include "${evt.title}" in the forecast`}
                     onClick={() => onToggleEvent(evt.id)}
                     className={`w-9 h-5 rounded-full transition-colors relative flex items-center p-0.5 ${
                       evt.isEnabled ? 'bg-amber-500' : 'bg-stone-800'
@@ -294,16 +309,19 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
                       className={`w-4 h-4 rounded-full bg-stone-950 transition-transform ${
                         evt.isEnabled ? 'translate-x-4' : 'translate-x-0'
                       }`}
+                      aria-hidden="true"
                     />
                   </button>
 
                   {evt.isUserCustom && (
                     <button
+                      type="button"
                       onClick={() => onDeleteEvent(evt.id)}
                       className="p-1 rounded text-stone-500 hover:text-rose-400 transition-colors"
                       title="Delete custom event"
+                      aria-label={`Delete custom event "${evt.title}"`}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                     </button>
                   )}
                 </div>
@@ -345,33 +363,43 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
       {/* Add Custom Event Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div
+            ref={addModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-event-title"
+            tabIndex={-1}
+            className="bg-stone-900 border border-stone-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto outline-none"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Plus className="w-4 h-4 text-amber-400" />
+              <h3 id="add-event-title" className="text-base font-bold text-white flex items-center gap-2">
+                <Plus className="w-4 h-4 text-amber-400" aria-hidden="true" />
                 <span>Add Local Event or Private Party</span>
               </h3>
               <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
+                aria-label="Close"
                 className="text-stone-400 hover:text-white text-sm"
               >
-                ✕
+                <span aria-hidden="true">✕</span>
               </button>
             </div>
 
             <form onSubmit={handleCreateEvent} className="space-y-3.5 text-xs" noValidate>
               {addEventError && (
-                <div className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-rose-300">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-rose-300">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
                   <span>{addEventError}</span>
                 </div>
               )}
 
               <div>
-                <label className="block text-stone-300 font-semibold mb-1">
+                <label htmlFor="ev-title" className="block text-stone-300 font-semibold mb-1">
                   Event Title *
                 </label>
                 <input
+                  id="ev-title"
                   type="text"
                   required
                   value={newTitle}
@@ -383,10 +411,11 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">
+                  <label htmlFor="ev-date" className="block text-stone-300 font-semibold mb-1">
                     Date *
                   </label>
                   <input
+                    id="ev-date"
                     type="date"
                     required
                     value={newDate}
@@ -396,10 +425,11 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">
+                  <label htmlFor="ev-category" className="block text-stone-300 font-semibold mb-1">
                     Category
                   </label>
                   <select
+                    id="ev-category"
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value as EventCategory)}
                     className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -416,10 +446,11 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">
+                  <label htmlFor="ev-venue" className="block text-stone-300 font-semibold mb-1">
                     Venue / Location
                   </label>
                   <input
+                    id="ev-venue"
                     type="text"
                     value={newVenue}
                     onChange={(e) => setNewVenue(e.target.value)}
@@ -429,10 +460,11 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">
+                  <label htmlFor="ev-attendance" className="block text-stone-300 font-semibold mb-1">
                     Est. Crowd Size
                   </label>
                   <input
+                    id="ev-attendance"
                     type="text"
                     value={newAttendance}
                     onChange={(e) => setNewAttendance(e.target.value)}
@@ -444,27 +476,30 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-stone-300 font-semibold">
+                  <label htmlFor="ev-multiplier" className="text-stone-300 font-semibold">
                     Volume Multiplier: +{Math.round((newMultiplier - 1) * 100)}%
                   </label>
                   <span className="text-amber-400 font-bold">{newMultiplier}x</span>
                 </div>
                 <input
+                  id="ev-multiplier"
                   type="range"
                   min="0.7"
                   max="1.7"
                   step="0.05"
                   value={newMultiplier}
                   onChange={(e) => setNewMultiplier(parseFloat(e.target.value))}
+                  aria-valuetext={`${newMultiplier} times baseline, plus ${Math.round((newMultiplier - 1) * 100)} percent`}
                   className="w-full accent-amber-500"
                 />
               </div>
 
               <div>
-                <label className="block text-stone-300 font-semibold mb-1">
+                <label htmlFor="ev-rush" className="block text-stone-300 font-semibold mb-1">
                   Peak Rush Window
                 </label>
                 <input
+                  id="ev-rush"
                   type="text"
                   value={newRushWindow}
                   onChange={(e) => setNewRushWindow(e.target.value)}
@@ -474,10 +509,11 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
               </div>
 
               <div>
-                <label className="block text-stone-300 font-semibold mb-1">
+                <label htmlFor="ev-tip" className="block text-stone-300 font-semibold mb-1">
                   Staffing & Prep Advice
                 </label>
                 <input
+                  id="ev-tip"
                   type="text"
                   value={newStaffingTip}
                   onChange={(e) => setNewStaffingTip(e.target.value)}
@@ -509,17 +545,26 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
       {/* iCal Import Modal */}
       {showICalModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div
+            ref={icalModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ical-modal-title"
+            tabIndex={-1}
+            className="bg-stone-900 border border-stone-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto outline-none"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Upload className="w-4 h-4 text-blue-400" />
+              <h3 id="ical-modal-title" className="text-base font-bold text-white flex items-center gap-2">
+                <Upload className="w-4 h-4 text-blue-400" aria-hidden="true" />
                 <span>Import iCal (.ics) Calendar Feed</span>
               </h3>
               <button
+                type="button"
                 onClick={() => setShowICalModal(false)}
+                aria-label="Close"
                 className="text-stone-400 hover:text-white text-sm"
               >
-                ✕
+                <span aria-hidden="true">✕</span>
               </button>
             </div>
 
@@ -529,13 +574,17 @@ export const LocalEventsRadar: React.FC<LocalEventsRadarProps> = ({
             </p>
 
             {icalError && (
-              <div className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-xs text-rose-300">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-xs text-rose-300">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
                 <span>{icalError}</span>
               </div>
             )}
 
+            <label htmlFor="ical-text" className="block text-xs font-semibold text-stone-300">
+              Calendar (.ics) contents
+            </label>
             <textarea
+              id="ical-text"
               rows={8}
               value={icsRawText}
               onChange={(e) => setIcsRawText(e.target.value)}

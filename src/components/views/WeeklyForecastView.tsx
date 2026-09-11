@@ -88,6 +88,7 @@ export const WeeklyForecastView: React.FC<WeeklyForecastViewProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const filteredDays = forecast.days.filter((day) => {
@@ -159,6 +160,12 @@ export const WeeklyForecastView: React.FC<WeeklyForecastViewProps> = ({
 
   return (
     <div className="space-y-6 pb-12">
+      {/* View-level heading. The visual design leads with the covers chart rather
+          than a title bar, but screen-reader users navigating by heading need an
+          h2 here so the cards below (h3) don't orphan the outline under the app's
+          h1. The other five tool views carry a visible h2 in their banner. */}
+      <h2 className="visually-hidden">Weekly Shift Forecast</h2>
+
       {/* 1. Anomaly / Local-Event Alert Banner (as in Figure 2 of Project Plan) */}
       {featuredEvent && highImpactEventDay && (
         <div className="bg-amber-950/40 border border-amber-500/40 rounded-xl px-4 py-3 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-amber-200 shadow-sm animate-fade-in">
@@ -202,7 +209,13 @@ export const WeeklyForecastView: React.FC<WeeklyForecastViewProps> = ({
               </span>
             </div>
 
-            <div className="h-52 w-full pt-2">
+            <div
+              className="h-52 w-full pt-2"
+              role="img"
+              aria-label={`Bar chart of forecast covers across the week: ${forecast.days
+                .map((d) => `${d.dayOfWeek} ${d.covers}`)
+                .join(', ')}. Click a day below the chart to inspect its staffing.`}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#292524" vertical={false} />
@@ -331,9 +344,9 @@ export const WeeklyForecastView: React.FC<WeeklyForecastViewProps> = ({
               <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
                 <Sparkles className="w-4 h-4" />
               </span>
-              <h2 className="text-base font-bold text-white tracking-tight">
+              <h3 className="text-base font-bold text-white tracking-tight">
                 Weekly Operations Forecast & Labor Strategy
-              </h2>
+              </h3>
             </div>
             <p className="text-sm text-stone-300 leading-relaxed">
               {forecast.executiveInsight}
@@ -706,14 +719,16 @@ export const WeeklyForecastView: React.FC<WeeklyForecastViewProps> = ({
                           ) : null}
 
                           <button
+                            type="button"
                             onClick={() => setExpandedShiftId(isExpanded ? null : shift.id)}
+                            aria-expanded={isExpanded}
                             className="text-xs font-semibold text-stone-400 hover:text-stone-100 flex items-center gap-1 bg-stone-900 px-2.5 py-1 rounded-lg border border-stone-800 cursor-pointer"
                           >
                             <span>{isExpanded ? 'Hide Station Details' : 'Station Breakdown'}</span>
                             {isExpanded ? (
-                              <ChevronUp className="w-3.5 h-3.5" />
+                              <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
                             ) : (
-                              <ChevronDown className="w-3.5 h-3.5" />
+                              <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
                             )}
                           </button>
                         </div>
@@ -796,26 +811,30 @@ export const WeeklyForecastView: React.FC<WeeklyForecastViewProps> = ({
                               {/* Manual Adjust Stepper */}
                               <div className="flex items-center justify-between mt-1.5 pt-1 border-t border-stone-800/60">
                                 <button
+                                  type="button"
                                   onClick={() =>
                                     onAdjustShiftStaff(day.date, shift.id, role, -1)
                                   }
                                   disabled={count <= 0}
                                   className="w-5 h-5 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 disabled:opacity-30 text-xs flex items-center justify-center font-bold cursor-pointer"
                                   title="Decrease headcount"
+                                  aria-label={`Decrease ${role} for ${day.dayOfWeek} ${shift.name} (currently ${count})`}
                                 >
-                                  -
+                                  <span aria-hidden="true">-</span>
                                 </button>
                                 <span className="text-[10px] text-stone-400 font-medium font-mono">
                                   ${(currentProfile.wageRates[role] || 16)}/h
                                 </span>
                                 <button
+                                  type="button"
                                   onClick={() =>
                                     onAdjustShiftStaff(day.date, shift.id, role, 1)
                                   }
                                   className="w-5 h-5 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs flex items-center justify-center font-bold cursor-pointer"
                                   title="Increase headcount"
+                                  aria-label={`Increase ${role} for ${day.dayOfWeek} ${shift.name} (currently ${count})`}
                                 >
-                                  +
+                                  <span aria-hidden="true">+</span>
                                 </button>
                               </div>
                             </div>

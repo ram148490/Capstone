@@ -10,12 +10,16 @@ export interface AuthenticatedRequest extends Request {
 }
 
 /**
- * Soft auth: resolves the caller from a Bearer token when present, otherwise
- * falls back to the demo manager so the app is usable without signing in.
+ * Soft auth: an anonymous request (no Authorization header at all) is served as
+ * the shared demo manager so the app is usable without signing in. But a request
+ * that DOES present a Bearer token which is invalid or expired is rejected with
+ * 401 rather than silently downgraded to the demo account — otherwise a signed-in
+ * user whose token lapsed would keep working and quietly write their real roster
+ * / POS data into the globally-readable demo workspace.
  */
 export const authMiddleware = (
   req: AuthenticatedRequest,
-  _res: Response,
+  res: Response,
   next: NextFunction
 ) => {
   const authHeader = req.headers.authorization;
@@ -27,8 +31,10 @@ export const authMiddleware = (
 
   const decoded = verifyJwtToken(authHeader.split(' ')[1]);
   if (!decoded) {
-    req.userId = DEMO_USER_ID;
-    return next();
+    return res.status(401).json({
+      success: false,
+      error: 'Your session has expired or is invalid. Please sign in again.',
+    });
   }
 
   req.userId = decoded.userId;

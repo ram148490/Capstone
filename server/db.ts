@@ -25,7 +25,27 @@ import {
   getPresetAccuracyLogs,
 } from '../src/data/restaurantPresets';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'shiftcast-secure-jwt-secret-key-2026';
+/**
+ * Session-token signing key. A hardcoded fallback here would let anyone who can
+ * read the (public) source forge a valid JWT for any userId and impersonate any
+ * account, so production MUST supply its own JWT_SECRET or the server refuses to
+ * boot. Development gets a clearly-labelled throwaway key.
+ */
+const JWT_SECRET: string = (() => {
+  const fromEnv = process.env.JWT_SECRET;
+  if (fromEnv && fromEnv.trim().length >= 16) return fromEnv;
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'JWT_SECRET is not set (or is too short). Refusing to start in production with a ' +
+        'hardcoded fallback signing key. Set JWT_SECRET to a long random string, e.g. `openssl rand -base64 48`.'
+    );
+  }
+  console.warn(
+    '[security] JWT_SECRET is not set — using an insecure development-only key. Never run this build in production.'
+  );
+  return 'shiftcast-dev-only-insecure-key-not-for-production';
+})();
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'shiftcast_db.json');
 
@@ -192,22 +212,19 @@ function migrateAndSanitizeDb(db: DatabaseSchema): boolean {
           }
         }
 
-        if (assign.role === 'prepCooks') {
-          // Standard shift duration is 5.0h, so 5.0 + 2.5 = 7.5h
-          const expectedHours = 7.5;
-          if (assign.hours !== expectedHours || assign.fixedHours !== prepFixed) {
-            assign.hours = expectedHours;
-            assign.fixedHours = prepFixed;
-            hasChanges = true;
-          }
-        } else if (assign.role === 'dishwashers') {
-          // Standard shift duration is 5.0h, so 5.0 + 1.5 = 6.5h
-          const expectedHours = 6.5;
-          if (assign.hours !== expectedHours || assign.fixedHours !== dishFixed) {
-            assign.hours = expectedHours;
-            assign.fixedHours = dishFixed;
-            hasChanges = true;
-          }
+        // Backfill the informational `fixedHours` tag for prep cooks / closing
+        // dishwashers only when it is genuinely absent (legacy rows). NEVER rewrite
+        // `assign.hours`: that value is computed per-assignment when the shift is
+        // assigned (shift.durationHours + the role's fixed block) and legitimately
+        // varies by shift length -- a 5h lunch prep cook works 7.5h while a 7h
+        // dinner prep cook works 9.5h. Hardcoding a single "expected" value here
+        // silently corrupted every non-5h shift's hours and cost on every save.
+        if (assign.role === 'prepCooks' && assign.fixedHours == null) {
+          assign.fixedHours = prepFixed;
+          hasChanges = true;
+        } else if (assign.role === 'dishwashers' && assign.fixedHours == null) {
+          assign.fixedHours = dishFixed;
+          hasChanges = true;
         }
 
         const expectedCost = Number((assign.hourlyWage * assign.hours).toFixed(2));

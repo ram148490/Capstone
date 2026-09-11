@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { validateForm } from '../../lib/formValidation';
+import { useModalDialog } from '../../lib/useModalDialog';
 
 interface HistoricalPOSDataViewProps {
   historicalData: HistoricalSalesRecord[];
@@ -33,6 +34,8 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
 }) => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const importModalRef = useModalDialog(() => setShowImportModal(false), showImportModal);
+  const addModalRef = useModalDialog(() => setShowAddModal(false), showAddModal);
   const [addFormError, setAddFormError] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [rawPOSText, setRawPOSText] = useState('');
@@ -277,12 +280,13 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
           <div className="flex items-center gap-2 w-full sm:w-auto">
             {/* Search */}
             <div className="relative flex-1 sm:flex-none">
-              <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
               <input
                 type="text"
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
                 placeholder="Filter date, event, note..."
+                aria-label="Filter sales records by date, event, or note"
                 className="bg-stone-950 border border-stone-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-stone-200 placeholder-stone-500 focus:outline-none focus:ring-1 focus:ring-amber-500 w-full sm:w-44"
               />
             </div>
@@ -291,6 +295,7 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
             <select
               value={shiftFilter}
               onChange={(e) => setShiftFilter(e.target.value)}
+              aria-label="Filter by shift"
               className="bg-stone-950 border border-stone-800 rounded-xl px-3 py-1.5 text-xs text-stone-200 focus:outline-none shrink-0"
             >
               <option value="ALL">All Shifts</option>
@@ -364,11 +369,13 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
                     {onDeleteRecord && (
                       <td className="px-4 py-3 text-center">
                         <button
+                          type="button"
                           onClick={() => onDeleteRecord(record.id)}
                           title="Delete record from database"
+                          aria-label={`Delete ${record.dayOfWeek} ${record.date} ${record.shift} sales record`}
                           className="p-1 hover:bg-stone-800 text-stone-500 hover:text-rose-400 rounded transition-colors cursor-pointer"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                         </button>
                       </td>
                     )}
@@ -383,17 +390,26 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
       {/* POS Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div
+            ref={importModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pos-import-title"
+            tabIndex={-1}
+            className="bg-stone-900 border border-stone-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto outline-none"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
+              <h3 id="pos-import-title" className="text-base font-bold text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-400" aria-hidden="true" />
                 <span>AI POS & Sales Report Importer</span>
               </h3>
               <button
+                type="button"
                 onClick={() => setShowImportModal(false)}
+                aria-label="Close"
                 className="text-stone-400 hover:text-white text-sm"
               >
-                ✕
+                <span aria-hidden="true">✕</span>
               </button>
             </div>
 
@@ -405,13 +421,17 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
             </p>
 
             {importError && (
-              <div className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-xs text-rose-300">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-xs text-rose-300">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
                 <span>{importError}</span>
               </div>
             )}
 
+            <label htmlFor="pos-import-text" className="block text-xs font-semibold text-stone-300">
+              Paste POS / spreadsheet export
+            </label>
             <textarea
+              id="pos-import-text"
               rows={8}
               value={rawPOSText}
               onChange={(e) => setRawPOSText(e.target.value)}
@@ -453,29 +473,39 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
       {/* Manual Add Record Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div
+            ref={addModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pos-add-title"
+            tabIndex={-1}
+            className="bg-stone-900 border border-stone-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto outline-none"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
-              <h3 className="text-base font-bold text-white">Add Historical Shift Record</h3>
+              <h3 id="pos-add-title" className="text-base font-bold text-white">Add Historical Shift Record</h3>
               <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
+                aria-label="Close"
                 className="text-stone-400 hover:text-white text-sm"
               >
-                ✕
+                <span aria-hidden="true">✕</span>
               </button>
             </div>
 
             <form onSubmit={handleManualAdd} className="space-y-3 text-xs" noValidate>
               {addFormError && (
-                <div className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-rose-300">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-rose-300">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
                   <span>{addFormError}</span>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">Date</label>
+                  <label htmlFor="pos-date" className="block text-stone-300 font-semibold mb-1">Date</label>
                   <input
+                    id="pos-date"
                     type="date"
                     required
                     value={mDate}
@@ -484,8 +514,9 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">Day of Week</label>
+                  <label htmlFor="pos-day" className="block text-stone-300 font-semibold mb-1">Day of Week</label>
                   <select
+                    id="pos-day"
                     value={mDay}
                     onChange={(e) => setMDay(e.target.value)}
                     className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-200"
@@ -509,8 +540,9 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">Shift</label>
+                  <label htmlFor="pos-shift" className="block text-stone-300 font-semibold mb-1">Shift</label>
                   <select
+                    id="pos-shift"
                     value={mShift}
                     onChange={(e) => setMShift(e.target.value)}
                     className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-200"
@@ -520,8 +552,9 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">Covers</label>
+                  <label htmlFor="pos-covers" className="block text-stone-300 font-semibold mb-1">Covers</label>
                   <input
+                    id="pos-covers"
                     type="number"
                     min="0"
                     required
@@ -531,8 +564,9 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">Sales ($)</label>
+                  <label htmlFor="pos-sales" className="block text-stone-300 font-semibold mb-1">Sales ($)</label>
                   <input
+                    id="pos-sales"
                     type="number"
                     min="0"
                     required
@@ -545,10 +579,11 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">
+                  <label htmlFor="pos-labor" className="block text-stone-300 font-semibold mb-1">
                     Labor Cost ($)
                   </label>
                   <input
+                    id="pos-labor"
                     type="number"
                     min="0"
                     required
@@ -558,8 +593,9 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-stone-300 font-semibold mb-1">Weather</label>
+                  <label htmlFor="pos-weather" className="block text-stone-300 font-semibold mb-1">Weather</label>
                   <select
+                    id="pos-weather"
                     value={mWeather}
                     onChange={(e) => setMWeather(e.target.value)}
                     className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-200"
@@ -573,10 +609,11 @@ export const HistoricalPOSDataView: React.FC<HistoricalPOSDataViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-stone-300 font-semibold mb-1">
+                <label htmlFor="pos-eventtag" className="block text-stone-300 font-semibold mb-1">
                   Event Tag (Optional)
                 </label>
                 <input
+                  id="pos-eventtag"
                   type="text"
                   value={mEventTag}
                   onChange={(e) => setMEventTag(e.target.value)}

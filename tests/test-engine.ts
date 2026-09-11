@@ -423,6 +423,19 @@ section('CSV schedule export (generateScheduleCSV) -- regression tests');
   const bartenderRows = lines.filter((l) => l.includes('"Bartender"'));
   assert(bartenderRows.length === 1, 'Exactly 1 bartender row (1 recommended, 0 assigned => 1 unassigned)', `found ${bartenderRows.length}`);
   assert(bartenderRows[0].includes('Tipped Direct Wage'), 'Unassigned bartender row uses role-level wageTypes default (TIPPED for MSK)');
+
+  // Security regression: CSV formula injection. An employee named with a leading
+  // = / + / - / @ must be neutralised so Excel/Sheets don't execute it on open.
+  const evilRoster: Employee[] = [
+    { id: 'e-evil', name: '=HYPERLINK("http://evil","click")', primaryRole: 'bartenders', secondaryRoles: [], wageType: 'TIPPED', hourlyWage: 10, maxHoursPerWeek: 30, availability: {} },
+  ];
+  const evilAssign: ShiftAssignment[] = [
+    { id: 'ae', date: '2026-09-04', shiftName: 'Dinner', role: 'bartenders', employeeId: 'e-evil', employeeName: '=HYPERLINK("http://evil","click")', wageType: 'TIPPED', hourlyWage: 10, hours: 7, cost: 70 },
+  ];
+  const evilCsv = generateScheduleCSV([day], evilAssign, msk, evilRoster);
+  const evilRow = evilCsv.split('\n').find((l) => l.includes('HYPERLINK'))!;
+  assert(evilRow.includes(`"'=HYPERLINK`), 'CSV formula injection: leading "=" in an employee name is prefixed with a quote so spreadsheets treat it as text', evilRow);
+  assert(!/,"=HYPERLINK/.test(evilRow), 'CSV formula injection: no raw un-guarded "=..." cell is emitted', evilRow);
 }
 
 // =====================================================================

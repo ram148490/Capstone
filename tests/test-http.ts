@@ -133,6 +133,21 @@ async function main() {
   const noAuthJson = await noAuthData.json();
   assert(noAuthData.status === 200 && noAuthJson.data.profile.id, 'GET /api/restaurant/data with NO auth header at all still works (defaults to demo user) -- matches authMiddleware fallback design', JSON.stringify(noAuthJson).slice(0, 120));
 
+  // Security regression: a PRESENT-but-invalid Bearer token must 401, not silently
+  // fall through to the demo account (which would route a stale-session user's
+  // writes into the shared demo workspace).
+  const staleTokenData = await fetch(`${BASE}/api/restaurant/data`, {
+    headers: { Authorization: 'Bearer not-a-real-jwt.abc.def' },
+  });
+  assert(staleTokenData.status === 401, 'GET /api/restaurant/data with an INVALID Bearer token returns 401 (not a silent demo downgrade)', `got ${staleTokenData.status}`);
+
+  const staleTokenWrite = await fetch(`${BASE}/api/restaurant/roster`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer garbage' },
+    body: JSON.stringify({ roster: [] }),
+  });
+  assert(staleTokenWrite.status === 401, 'POST /api/restaurant/roster with an INVALID Bearer token returns 401 (stale session cannot write into the demo bucket)', `got ${staleTokenWrite.status}`);
+
   console.log(`\n\n===== SUMMARY: ${pass} passed, ${fail} failed =====`);
   if (fail > 0) {
     console.log('\nFailed checks:');

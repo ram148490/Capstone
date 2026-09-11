@@ -226,7 +226,22 @@ export function generateScheduleCSV(
     });
   });
 
-  return rows.map((r) => r.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\n');
+  return rows.map((r) => r.map(csvCell).join(',')).join('\n');
+}
+
+/**
+ * Serialize one CSV cell. Besides RFC-4180 quote-doubling, this neutralises
+ * spreadsheet formula injection: Excel / Google Sheets evaluate a cell whose
+ * value begins with = + - @ (or a tab / carriage return) as a formula even when
+ * the value is quoted, so a staff member named `=HYPERLINK(...)` or
+ * `@SUM(1+1)*cmd` could run when a manager opens the exported schedule. Prefixing
+ * such values with a single quote makes the spreadsheet treat them as text.
+ * None of the legitimate columns (dates, role names, non-negative rates / hours /
+ * costs / covers) start with those characters, so this never mangles real data.
+ */
+function csvCell(value: string): string {
+  const guarded = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return `"${guarded.replace(/"/g, '""')}"`;
 }
 
 // Generate printable text schedule / kitchen pinboard format

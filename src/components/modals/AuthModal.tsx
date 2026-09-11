@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { validateForm } from '../../lib/formValidation';
+import { useModalDialog } from '../../lib/useModalDialog';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const panelRef = useModalDialog(onClose, isOpen);
 
   if (!isOpen) return null;
 
@@ -112,17 +114,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/80 backdrop-blur-sm animate-fade-in">
       <div
-        className="bg-stone-900 border border-stone-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col text-stone-100 relative"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
+        tabIndex={-1}
+        className="bg-stone-900 border border-stone-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col text-stone-100 relative outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="p-6 border-b border-stone-800 bg-stone-950/60 flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
-              <ShieldCheck className="w-6 h-6" />
+              <ShieldCheck className="w-6 h-6" aria-hidden="true" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <h2 id="auth-modal-title" className="text-base font-bold text-white flex items-center gap-2">
                 {user ? 'Account Settings' : mode === 'login' ? 'Restaurant Manager Login' : 'Create Manager Account'}
               </h2>
               <p className="text-xs text-stone-400">
@@ -133,10 +140,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close"
             className="text-stone-400 hover:text-white p-1 rounded-lg hover:bg-stone-800 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -234,12 +243,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <>
                     <div className="grid grid-cols-2 gap-2.5">
                       <div>
-                        <label className="block text-[11px] font-medium text-stone-400 mb-1">
+                        <label htmlFor="auth-name" className="block text-[11px] font-medium text-stone-400 mb-1">
                           Manager Name
                         </label>
                         <div className="relative">
-                          <User className="w-3.5 h-3.5 text-stone-500 absolute left-3 top-2.5" />
+                          <User className="w-3.5 h-3.5 text-stone-500 absolute left-3 top-2.5" aria-hidden="true" />
                           <input
+                            id="auth-name"
                             type="text"
                             required
                             placeholder="e.g. Chef Alex"
@@ -250,12 +260,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-medium text-stone-400 mb-1">
+                        <label htmlFor="auth-restaurant" className="block text-[11px] font-medium text-stone-400 mb-1">
                           Restaurant Name
                         </label>
                         <div className="relative">
-                          <Store className="w-3.5 h-3.5 text-stone-500 absolute left-3 top-2.5" />
+                          <Store className="w-3.5 h-3.5 text-stone-500 absolute left-3 top-2.5" aria-hidden="true" />
                           <input
+                            id="auth-restaurant"
                             type="text"
                             required
                             placeholder="e.g. Lumina Osteria"
@@ -268,12 +279,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-medium text-stone-400 mb-1">
+                      <label htmlFor="auth-concept" className="block text-[11px] font-medium text-stone-400 mb-1">
                         Concept & Dining Style
                       </label>
                       <div className="relative">
-                        <Utensils className="w-3.5 h-3.5 text-stone-500 absolute left-3 top-2.5" />
+                        <Utensils className="w-3.5 h-3.5 text-stone-500 absolute left-3 top-2.5" aria-hidden="true" />
                         <input
+                          id="auth-concept"
                           type="text"
                           placeholder="e.g. Modern Italian & Craft Cocktails"
                           value={concept}
@@ -286,12 +298,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 )}
 
                 <div>
-                  <label className="block text-[11px] font-medium text-stone-400 mb-1">
+                  <label htmlFor="auth-email" className="block text-[11px] font-medium text-stone-400 mb-1">
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className="w-3.5 h-3.5 text-stone-500 absolute left-3 top-2.5" />
+                    <Mail className="w-3.5 h-3.5 text-stone-500 absolute left-3 top-2.5" aria-hidden="true" />
                     <input
+                      id="auth-email"
                       type="email"
                       required
                       placeholder="manager@restaurant.com"
@@ -303,12 +316,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-stone-400 mb-1">
+                  <label htmlFor="auth-password" className="block text-[11px] font-medium text-stone-400 mb-1">
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="w-3.5 h-3.5 text-stone-500 absolute left-3 top-2.5" />
+                    <Lock className="w-3.5 h-3.5 text-stone-500 absolute left-3 top-2.5" aria-hidden="true" />
                     <input
+                      id="auth-password"
                       type="password"
                       required
                       placeholder="••••••••"

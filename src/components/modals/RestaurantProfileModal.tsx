@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { RestaurantProfile, StaffRole } from '../../types';
+import { RestaurantProfile, StaffRole, ServiceStyle } from '../../types';
 import { Store, DollarSign, Users, Sliders, X, Check, AlertTriangle } from 'lucide-react';
 import { validateForm, FieldCheck } from '../../lib/formValidation';
+import { useModalDialog } from '../../lib/useModalDialog';
 
 interface RestaurantProfileModalProps {
   profile: RestaurantProfile;
@@ -9,13 +10,59 @@ interface RestaurantProfileModalProps {
   onClose: () => void;
 }
 
+/** Valid Service Model values the dropdown offers. */
+const SERVICE_STYLES: ServiceStyle[] = [
+  'FULL_SERVICE',
+  'FAST_CASUAL',
+  'PIZZERIA',
+  'BISTRO',
+  'COUNTER_SERVICE',
+  'BAR_TAPROOM',
+];
+
+/**
+ * Map a persisted serviceStyle onto a value the dropdown can actually show.
+ * Older builds let users save strings that were never in the ServiceStyle union
+ * (CASUAL_DINING / FINE_DINING / BAR_LOUNGE); left alone they render the <select>
+ * blank and get re-saved as-is. Normalise on open so the field is never blank and
+ * every Save writes a valid value. The engine already treats all of these as
+ * full-service, so behaviour is unchanged.
+ */
+function normalizeServiceStyle(style: string | undefined): ServiceStyle {
+  if (style && SERVICE_STYLES.includes(style as ServiceStyle)) {
+    return style as ServiceStyle;
+  }
+  const legacy: Record<string, ServiceStyle> = {
+    CASUAL_DINING: 'FULL_SERVICE',
+    FINE_DINING: 'BISTRO',
+    BAR_LOUNGE: 'BAR_TAPROOM',
+  };
+  return legacy[style ?? ''] ?? 'FULL_SERVICE';
+}
+
 export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
   profile,
   onSave,
   onClose,
 }) => {
-  const [form, setForm] = useState<RestaurantProfile>({ ...profile });
+  const [form, setForm] = useState<RestaurantProfile>({
+    ...profile,
+    serviceStyle: normalizeServiceStyle(profile.serviceStyle),
+  });
   const [formError, setFormError] = useState<string | null>(null);
+  const panelRef = useModalDialog(onClose);
+
+  /**
+   * Parse a numeric <input> value, keeping the supplied fallback only when the
+   * field is empty / mid-edit (NaN). Critically this still lets the user type a
+   * literal "0" or "0.5" -- the old `parseFloat(x) || fallback` swallowed any
+   * falsy result and snapped the field back to a magic constant, making some
+   * values impossible to enter and hiding invalid input from submit validation.
+   */
+  const parseNum = (raw: string, fallback: number): number => {
+    const n = parseFloat(raw);
+    return Number.isNaN(n) ? fallback : n;
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,24 +105,33 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="restaurant-settings-title"
+        tabIndex={-1}
+        className="bg-stone-900 border border-stone-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto outline-none"
+      >
         <div className="flex items-center justify-between pb-3 border-b border-stone-800">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <Store className="w-4 h-4" />
+              <Store className="w-4 h-4" aria-hidden="true" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Restaurant Operational Parameters</h3>
+              <h3 id="restaurant-settings-title" className="text-base font-bold text-white">Restaurant Operational Parameters</h3>
               <p className="text-xs text-stone-400">
                 Calibrate seating capacity, wage rates, check size, and labor targets
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close restaurant settings"
             className="p-1 text-stone-400 hover:text-white rounded-lg hover:bg-stone-800"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
 
@@ -90,8 +146,9 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
           {/* General info */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-stone-300 font-semibold mb-1">Restaurant Name</label>
+              <label htmlFor="rp-name" className="block text-stone-300 font-semibold mb-1">Restaurant Name</label>
               <input
+                id="rp-name"
                 type="text"
                 required
                 value={form.name}
@@ -100,8 +157,9 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-stone-300 font-semibold mb-1">Concept / Cuisine</label>
+              <label htmlFor="rp-concept" className="block text-stone-300 font-semibold mb-1">Concept / Cuisine</label>
               <input
+                id="rp-concept"
                 type="text"
                 required
                 value={form.concept}
@@ -112,10 +170,11 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-stone-300 font-semibold mb-1">
+            <label htmlFor="rp-location" className="block text-stone-300 font-semibold mb-1">
               Location / Neighborhood
             </label>
             <input
+              id="rp-location"
               type="text"
               required
               value={form.location}
@@ -133,11 +192,12 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-stone-300 font-semibold mb-1">Service Model</label>
+                <label htmlFor="rp-service-model" className="block text-stone-300 font-semibold mb-1">Service Model</label>
                 <select
+                  id="rp-service-model"
                   value={form.serviceStyle || 'FULL_SERVICE'}
                   onChange={(e) => {
-                    const style = e.target.value as any;
+                    const style = e.target.value as ServiceStyle;
                     const isCounter = style === 'FAST_CASUAL' || style === 'COUNTER_SERVICE';
                     setForm({
                       ...form,
@@ -150,10 +210,10 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                 >
                   <option value="FULL_SERVICE">Full Service Dining</option>
                   <option value="FAST_CASUAL">Fast-Casual / Counter Service</option>
-                  <option value="CASUAL_DINING">Casual Dining & Pizzeria</option>
-                  <option value="FINE_DINING">Fine Dining & Bistro</option>
+                  <option value="PIZZERIA">Casual Dining & Pizzeria</option>
+                  <option value="BISTRO">Fine Dining & Bistro</option>
                   <option value="COUNTER_SERVICE">Quick Counter Service</option>
-                  <option value="BAR_LOUNGE">Bar & Taproom</option>
+                  <option value="BAR_TAPROOM">Bar & Taproom</option>
                 </select>
               </div>
 
@@ -196,27 +256,29 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
           {/* Core Economics */}
           <div className="grid grid-cols-3 gap-3 pt-2 border-t border-stone-800">
             <div>
-              <label className="block text-stone-300 font-semibold mb-1">
+              <label htmlFor="rp-check-size" className="block text-stone-300 font-semibold mb-1">
                 Average Check Size ($)
               </label>
               <input
+                id="rp-check-size"
                 type="number"
                 step="0.5"
                 min="0"
                 required
                 value={form.averageCheckSize}
                 onChange={(e) =>
-                  setForm({ ...form, averageCheckSize: parseFloat(e.target.value) || 35 })
+                  setForm({ ...form, averageCheckSize: parseNum(e.target.value, form.averageCheckSize) })
                 }
                 className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-200"
               />
             </div>
 
             <div>
-              <label className="block text-stone-300 font-semibold mb-1">
+              <label htmlFor="rp-target-labor" className="block text-stone-300 font-semibold mb-1">
                 Target Labor Cost %
               </label>
               <input
+                id="rp-target-labor"
                 type="number"
                 step="0.5"
                 min="0"
@@ -224,23 +286,24 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                 required
                 value={form.targetLaborPercentage}
                 onChange={(e) =>
-                  setForm({ ...form, targetLaborPercentage: parseFloat(e.target.value) || 28 })
+                  setForm({ ...form, targetLaborPercentage: parseNum(e.target.value, form.targetLaborPercentage) })
                 }
                 className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-200"
               />
             </div>
 
             <div>
-              <label className="block text-stone-300 font-semibold mb-1">
+              <label htmlFor="rp-seats" className="block text-stone-300 font-semibold mb-1">
                 Dining Room Seats
               </label>
               <input
+                id="rp-seats"
                 type="number"
                 min="0"
                 required
                 value={form.seatCount}
                 onChange={(e) =>
-                  setForm({ ...form, seatCount: parseInt(e.target.value) || 80 })
+                  setForm({ ...form, seatCount: parseNum(e.target.value, form.seatCount) })
                 }
                 className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-200"
               />
@@ -260,13 +323,14 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
             </label>
             {form.hasPatio && (
               <div className="flex items-center gap-2">
-                <span className="text-stone-400">Patio Seats:</span>
+                <label htmlFor="rp-patio-seats" className="text-stone-400">Patio Seats:</label>
                 <input
+                  id="rp-patio-seats"
                   type="number"
                   min="0"
                   value={form.patioSeats}
                   onChange={(e) =>
-                    setForm({ ...form, patioSeats: parseInt(e.target.value) || 0 })
+                    setForm({ ...form, patioSeats: parseNum(e.target.value, form.patioSeats ?? 0) })
                   }
                   className="w-20 bg-stone-950 border border-stone-800 rounded-lg px-2 py-1 text-stone-200"
                 />
@@ -313,7 +377,7 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-[11px] font-semibold text-stone-200 capitalize">
+                      <label htmlFor={`rp-wage-${role}`} className="text-[11px] font-semibold text-stone-200 capitalize">
                         {role.replace('Cooks', ' Cook')}
                       </label>
                       <span
@@ -334,6 +398,7 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                           <span className="text-stone-300 font-mono">${form.wageRates[role]}/hr</span>
                         </div>
                         <input
+                          id={`rp-wage-${role}`}
                           type="number"
                           step="0.5"
                           min="0"
@@ -343,7 +408,7 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                               ...form,
                               wageRates: {
                                 ...form.wageRates,
-                                [role]: parseFloat(e.target.value) || 10,
+                                [role]: parseNum(e.target.value, form.wageRates[role]),
                               },
                             })
                           }
@@ -352,8 +417,9 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-[10px] text-stone-400 mb-0.5">Wage Type:</label>
+                        <label htmlFor={`rp-wagetype-${role}`} className="block text-[10px] text-stone-400 mb-0.5">Wage Type:</label>
                         <select
+                          id={`rp-wagetype-${role}`}
                           value={currentWageType}
                           onChange={(e) =>
                             setForm({
@@ -409,10 +475,11 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[10px] text-stone-400 mb-1">
+                    <label htmlFor="rp-prep-hours" className="block text-[10px] text-stone-400 mb-1">
                       Fixed Prep Hours:
                     </label>
                     <input
+                      id="rp-prep-hours"
                       type="number"
                       step="0.5"
                       min="0"
@@ -422,7 +489,10 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                         setForm({
                           ...form,
                           fixedHoursConfig: {
-                            prepCookFixedHours: parseFloat(e.target.value) || 2.5,
+                            prepCookFixedHours: parseNum(
+                              e.target.value,
+                              form.fixedHoursConfig?.prepCookFixedHours ?? 2.5
+                            ),
                             closingDishwasherFixedHours:
                               form.fixedHoursConfig?.closingDishwasherFixedHours ?? 1.5,
                             fixedPrepCookHeadcount:
@@ -436,10 +506,11 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-stone-400 mb-1">
+                    <label htmlFor="rp-prep-headcount" className="block text-[10px] text-stone-400 mb-1">
                       Prep Floor Headcount:
                     </label>
                     <input
+                      id="rp-prep-headcount"
                       type="number"
                       min="1"
                       max="4"
@@ -452,7 +523,10 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                               form.fixedHoursConfig?.prepCookFixedHours ?? 2.5,
                             closingDishwasherFixedHours:
                               form.fixedHoursConfig?.closingDishwasherFixedHours ?? 1.5,
-                            fixedPrepCookHeadcount: parseInt(e.target.value) || 1,
+                            fixedPrepCookHeadcount: parseNum(
+                              e.target.value,
+                              form.fixedHoursConfig?.fixedPrepCookHeadcount ?? 1
+                            ),
                             fixedClosingDishwasherHeadcount:
                               form.fixedHoursConfig?.fixedClosingDishwasherHeadcount ?? 1,
                           },
@@ -475,10 +549,11 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[10px] text-stone-400 mb-1">
+                    <label htmlFor="rp-close-hours" className="block text-[10px] text-stone-400 mb-1">
                       Closing Sanitation Hours:
                     </label>
                     <input
+                      id="rp-close-hours"
                       type="number"
                       step="0.5"
                       min="0"
@@ -490,7 +565,10 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                           fixedHoursConfig: {
                             prepCookFixedHours:
                               form.fixedHoursConfig?.prepCookFixedHours ?? 2.5,
-                            closingDishwasherFixedHours: parseFloat(e.target.value) || 1.5,
+                            closingDishwasherFixedHours: parseNum(
+                              e.target.value,
+                              form.fixedHoursConfig?.closingDishwasherFixedHours ?? 1.5
+                            ),
                             fixedPrepCookHeadcount:
                               form.fixedHoursConfig?.fixedPrepCookHeadcount ?? 1,
                             fixedClosingDishwasherHeadcount:
@@ -502,10 +580,11 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-stone-400 mb-1">
+                    <label htmlFor="rp-close-headcount" className="block text-[10px] text-stone-400 mb-1">
                       Closing Dish Headcount:
                     </label>
                     <input
+                      id="rp-close-headcount"
                       type="number"
                       min="1"
                       max="4"
@@ -520,7 +599,10 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                               form.fixedHoursConfig?.closingDishwasherFixedHours ?? 1.5,
                             fixedPrepCookHeadcount:
                               form.fixedHoursConfig?.fixedPrepCookHeadcount ?? 1,
-                            fixedClosingDishwasherHeadcount: parseInt(e.target.value) || 1,
+                            fixedClosingDishwasherHeadcount: parseNum(
+                              e.target.value,
+                              form.fixedHoursConfig?.fixedClosingDishwasherHeadcount ?? 1
+                            ),
                           },
                         })
                       }
@@ -539,8 +621,9 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
               <div>
-                <label className="block text-[11px] text-stone-400 mb-1">Covers / Server</label>
+                <label htmlFor="rp-cps" className="block text-[11px] text-stone-400 mb-1">Covers / Server</label>
                 <input
+                  id="rp-cps"
                   type="number"
                   min="1"
                   value={form.productivity.coversPerServer}
@@ -549,7 +632,7 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                       ...form,
                       productivity: {
                         ...form.productivity,
-                        coversPerServer: parseInt(e.target.value) || 20,
+                        coversPerServer: parseNum(e.target.value, form.productivity.coversPerServer),
                       },
                     })
                   }
@@ -558,8 +641,9 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] text-stone-400 mb-1">Covers / Line Cook</label>
+                <label htmlFor="rp-cplc" className="block text-[11px] text-stone-400 mb-1">Covers / Line Cook</label>
                 <input
+                  id="rp-cplc"
                   type="number"
                   min="1"
                   value={form.productivity.coversPerLineCook}
@@ -568,7 +652,7 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                       ...form,
                       productivity: {
                         ...form.productivity,
-                        coversPerLineCook: parseInt(e.target.value) || 28,
+                        coversPerLineCook: parseNum(e.target.value, form.productivity.coversPerLineCook),
                       },
                     })
                   }
@@ -577,8 +661,9 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] text-stone-400 mb-1">Covers / Bartender</label>
+                <label htmlFor="rp-cpb" className="block text-[11px] text-stone-400 mb-1">Covers / Bartender</label>
                 <input
+                  id="rp-cpb"
                   type="number"
                   min="1"
                   value={form.productivity.coversPerBartender}
@@ -587,7 +672,7 @@ export const RestaurantProfileModal: React.FC<RestaurantProfileModalProps> = ({
                       ...form,
                       productivity: {
                         ...form.productivity,
-                        coversPerBartender: parseInt(e.target.value) || 45,
+                        coversPerBartender: parseNum(e.target.value, form.productivity.coversPerBartender),
                       },
                     })
                   }

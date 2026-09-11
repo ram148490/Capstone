@@ -12,6 +12,7 @@ import {
   createShiftAccuracyLog,
 } from '../../lib/accuracyEngine';
 import { validateForm } from '../../lib/formValidation';
+import { useModalDialog } from '../../lib/useModalDialog';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -66,6 +67,8 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
   const [selectedWeekKey, setSelectedWeekKey] = useState<string | 'ALL'>('ALL');
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isBatchQuickFillOpen, setIsBatchQuickFillOpen] = useState(false);
+  const logModalRef = useModalDialog(() => setIsLogModalOpen(false), isLogModalOpen);
+  const batchModalRef = useModalDialog(() => setIsBatchQuickFillOpen(false), isBatchQuickFillOpen);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logFormError, setLogFormError] = useState<string | null>(null);
   const [activeViewMode, setActiveViewMode] = useState<'trends' | 'shift_logs' | 'shift_breakdown'>('trends');
@@ -515,9 +518,10 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
 
         {/* Week Range Filter */}
         <div className="flex items-center gap-2 min-w-0">
-          <Filter className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-          <span className="text-xs text-stone-400 shrink-0">Filter Week:</span>
+          <Filter className="w-3.5 h-3.5 text-stone-400 shrink-0" aria-hidden="true" />
+          <label htmlFor="acc-week-filter" className="text-xs text-stone-400 shrink-0">Filter Week:</label>
           <select
+            id="acc-week-filter"
             value={selectedWeekKey}
             onChange={(e) => setSelectedWeekKey(e.target.value)}
             className="min-w-0 flex-1 sm:flex-none truncate bg-stone-900 text-stone-200 text-xs font-medium rounded-lg border border-stone-700 py-1.5 px-2.5 focus:ring-1 focus:ring-amber-500 focus:outline-none cursor-pointer"
@@ -559,7 +563,13 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
               </div>
             </div>
 
-            <div className="h-72 w-full">
+            <div
+              className="h-72 w-full"
+              role="img"
+              aria-label={`Weekly forecast accuracy and MAPE error trend. ${multiWeekChartData
+                .map((w) => `${w.weekLabel}: ${w.accuracy}% accuracy, ${w.mape}% error`)
+                .join('. ')}`}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={multiWeekChartData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
                   <defs>
@@ -650,7 +660,13 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
               </div>
             </div>
 
-            <div className="h-72 w-full">
+            <div
+              className="h-72 w-full"
+              role="img"
+              aria-label={`Weekly predicted versus actual guest covers. ${multiWeekChartData
+                .map((w) => `${w.weekLabel}: predicted ${w.predictedCovers}, actual ${w.actualCovers}`)
+                .join('. ')}`}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={multiWeekChartData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#292524" />
@@ -798,11 +814,13 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
 
                       <td className="py-3 px-4 text-center">
                         <button
+                          type="button"
                           onClick={() => onDeleteLog(log.id)}
                           className="p-1 text-stone-500 hover:text-rose-400 hover:bg-stone-800 rounded transition-colors cursor-pointer"
                           title="Delete Shift Log"
+                          aria-label={`Delete ${log.dayOfWeek} ${log.date} ${log.shift} accuracy log`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                         </button>
                       </td>
                     </tr>
@@ -900,32 +918,42 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
       {/* MODAL 1: LOG ACTUAL SHIFT COVERS */}
       {isLogModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div
+            ref={logModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="log-actual-title"
+            tabIndex={-1}
+            className="bg-stone-900 border border-stone-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto outline-none"
+          >
             <div className="flex items-center justify-between border-b border-stone-800 pb-3">
               <div className="flex items-center gap-2">
-                <Target className="w-5 h-5 text-amber-400" />
-                <h3 className="text-base font-bold text-white">Log Past Shift Actual Covers</h3>
+                <Target className="w-5 h-5 text-amber-400" aria-hidden="true" />
+                <h3 id="log-actual-title" className="text-base font-bold text-white">Log Past Shift Actual Covers</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsLogModalOpen(false)}
+                aria-label="Close"
                 className="text-stone-400 hover:text-white text-lg font-bold"
               >
-                ✕
+                <span aria-hidden="true">✕</span>
               </button>
             </div>
 
             <form onSubmit={handleSingleLogSubmit} className="space-y-4 text-xs" noValidate>
               {logFormError && (
-                <div className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-rose-300">
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-800/80 bg-rose-950/60 px-3 py-2 text-rose-300">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
                   <span>{logFormError}</span>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-300 font-medium mb-1">Shift Date</label>
+                  <label htmlFor="log-date" className="block text-stone-300 font-medium mb-1">Shift Date</label>
                   <input
+                    id="log-date"
                     type="date"
                     required
                     value={formData.date}
@@ -935,8 +963,9 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-stone-300 font-medium mb-1">Shift Daypart</label>
+                  <label htmlFor="log-shift" className="block text-stone-300 font-medium mb-1">Shift Daypart</label>
                   <select
+                    id="log-shift"
                     value={formData.shift}
                     onChange={(e) => setFormData({ ...formData, shift: e.target.value })}
                     className="w-full bg-stone-950 border border-stone-700 rounded-lg p-2 text-stone-100 focus:outline-none focus:border-amber-500 cursor-pointer"
@@ -951,8 +980,9 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-300 font-medium mb-1">Predicted Covers</label>
+                  <label htmlFor="log-predicted" className="block text-stone-300 font-medium mb-1">Predicted Covers</label>
                   <input
+                    id="log-predicted"
                     type="number"
                     required
                     min={1}
@@ -963,8 +993,9 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-stone-300 font-medium mb-1">Actual Covers Delivered</label>
+                  <label htmlFor="log-actual" className="block text-stone-300 font-medium mb-1">Actual Covers Delivered</label>
                   <input
+                    id="log-actual"
                     type="number"
                     required
                     min={0}
@@ -976,12 +1007,13 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-stone-300 font-medium mb-1">
+                <label htmlFor="log-revenue" className="block text-stone-300 font-medium mb-1">
                   Actual Shift Revenue (Optional, calculated if blank)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-2 text-stone-500">$</span>
+                  <span className="absolute left-2.5 top-2 text-stone-500" aria-hidden="true">$</span>
                   <input
+                    id="log-revenue"
                     type="number"
                     min="0"
                     placeholder={`e.g. ${formData.actualCovers * currentProfile.averageCheckSize}`}
@@ -993,8 +1025,9 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-stone-300 font-medium mb-1">Weather Observed</label>
+                <label htmlFor="log-weather" className="block text-stone-300 font-medium mb-1">Weather Observed</label>
                 <input
+                  id="log-weather"
                   type="text"
                   placeholder="e.g. Sunny & Warm (72°F) or Heavy Rain"
                   value={formData.weatherObserved}
@@ -1004,8 +1037,9 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-stone-300 font-medium mb-1">Shift Notes / Variances</label>
+                <label htmlFor="log-notes" className="block text-stone-300 font-medium mb-1">Shift Notes / Variances</label>
                 <textarea
+                  id="log-notes"
                   rows={2}
                   placeholder="e.g. Large walk-in soccer team of 25 at 6:30 PM, or unexpected patio closure due to wind."
                   value={formData.notes}
@@ -1066,17 +1100,26 @@ export const ForecastAccuracyView: React.FC<ForecastAccuracyViewProps> = ({
       {/* MODAL 2: QUICK BATCH FILL MODAL */}
       {isBatchQuickFillOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-xs max-h-[90vh] overflow-y-auto">
+          <div
+            ref={batchModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="batch-log-title"
+            tabIndex={-1}
+            className="bg-stone-900 border border-stone-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-xs max-h-[90vh] overflow-y-auto outline-none"
+          >
             <div className="flex items-center justify-between border-b border-stone-800 pb-3">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-400" />
-                <h3 className="text-base font-bold text-white">Batch Log Past Week Actuals</h3>
+                <Sparkles className="w-5 h-5 text-amber-400" aria-hidden="true" />
+                <h3 id="batch-log-title" className="text-base font-bold text-white">Batch Log Past Week Actuals</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsBatchQuickFillOpen(false)}
+                aria-label="Close"
                 className="text-stone-400 hover:text-white text-lg font-bold"
               >
-                ✕
+                <span aria-hidden="true">✕</span>
               </button>
             </div>
 

@@ -109,7 +109,7 @@ Return ONLY valid JSON. Ensure calculations maintain a balanced labor percentage
     console.error('Error in /api/forecast/ai-analyze:', error);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to generate AI forecast',
+      error: 'Failed to generate AI forecast.',
     });
   }
 });
@@ -162,7 +162,7 @@ Provide 5 to 9 varied, realistic, and operationally meaningful events for this w
     console.error('Error in /api/calendar/discover-events:', error);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to discover local events',
+      error: 'Failed to discover local events.',
     });
   }
 });
@@ -211,7 +211,7 @@ Provide JSON output with:
     console.error('Error generating briefing:', error);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to generate briefing',
+      error: 'Failed to generate briefing.',
     });
   }
 });
@@ -267,7 +267,7 @@ Ensure dates are standardized to YYYY-MM-DD. Deduce reasonable numbers if specif
     console.error('Error parsing POS data:', error);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to parse POS data',
+      error: 'Failed to parse POS data.',
     });
   }
 });

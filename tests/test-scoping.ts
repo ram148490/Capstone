@@ -16,7 +16,7 @@ import {
   addPosRecords,
   resetUserToDemoData,
 } from '../server/db';
-import { Employee, HistoricalSalesRecord } from '../src/types';
+import { Employee, HistoricalSalesRecord, ShiftAssignment } from '../src/types';
 
 let pass = 0;
 let fail = 0;
@@ -157,6 +157,32 @@ assert(
     ? `resetUserToDemoData() only overwrites db.restaurantData[userId] and never touches the scoped key (db.restaurantData["${userId}__market-street-kitchen"]). That scoped key still holds the PRE-reset data (with Alice). The very next switch-away-and-back reloads the stale scoped copy, silently undoing the reset the user just asked for.`
     : undefined
 );
+
+// =====================================================================
+section('Assignment sanitize must NOT rewrite per-shift prep/dish hours (regression)');
+// =====================================================================
+// migrateAndSanitizeDb() runs on every saveUserRestaurantData(). It used to hardcode
+// prep cooks to 7.5h and dishwashers to 6.5h ("5h shift + fixed block"), silently
+// corrupting every non-5h shift. MSK Dinner is a 7h shift, so a dinner prep cook works
+// 7 + 2.5 = 9.5h and a dinner dishwasher works 7 + 1.5 = 8.5h -- those must survive a save.
+switchUserProfilePreset(userId, 'market-street-kitchen');
+const dinnerPrep: ShiftAssignment = {
+  id: 'test-asg-dinner-prep', date: '2026-09-04', shiftName: 'Dinner', role: 'prepCooks',
+  employeeId: 'x', employeeName: 'Test Prep', wageType: 'NON_TIPPED', hourlyWage: 19,
+  hours: 9.5, fixedHours: 2.5, cost: Number((19 * 9.5).toFixed(2)),
+};
+const dinnerDish: ShiftAssignment = {
+  id: 'test-asg-dinner-dish', date: '2026-09-04', shiftName: 'Dinner', role: 'dishwashers',
+  employeeId: 'y', employeeName: 'Test Dish', wageType: 'NON_TIPPED', hourlyWage: 16.5,
+  hours: 8.5, fixedHours: 1.5, cost: Number((16.5 * 8.5).toFixed(2)),
+};
+saveUserRestaurantData(userId, { assignments: [dinnerPrep, dinnerDish] });
+const afterSave = getUserRestaurantData(userId);
+const savedPrep = afterSave.assignments.find((a) => a.id === 'test-asg-dinner-prep');
+const savedDish = afterSave.assignments.find((a) => a.id === 'test-asg-dinner-dish');
+assert(savedPrep?.hours === 9.5, 'REGRESSION: dinner (7h) prep cook keeps 9.5h after save, not clamped to 7.5h', `got ${savedPrep?.hours}`);
+assert(savedDish?.hours === 8.5, 'REGRESSION: dinner (7h) dishwasher keeps 8.5h after save, not clamped to 6.5h', `got ${savedDish?.hours}`);
+assert(savedPrep?.cost === Number((19 * 9.5).toFixed(2)), 'dinner prep cook cost stays consistent with its real hours', `got ${savedPrep?.cost}`);
 
 // =====================================================================
 console.log(`\n\n===== SUMMARY: ${pass} passed, ${fail} failed =====`);

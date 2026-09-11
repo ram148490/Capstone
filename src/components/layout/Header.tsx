@@ -133,6 +133,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="relative inline-block text-left min-w-0">
             <select
               id="restaurant-select"
+              aria-label="Active restaurant"
               value={currentProfile.id}
               onChange={(e) => {
                 const found = RESTAURANT_PRESETS.find((p) => p.id === e.target.value);
@@ -168,6 +169,8 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="btn-header-overflow-menu"
               onClick={() => setShowOverflowMenu(!showOverflowMenu)}
+              aria-haspopup="menu"
+              aria-expanded={showOverflowMenu}
               className="flex items-center gap-1.5 text-xs bg-stone-800 hover:bg-stone-700 text-stone-200 px-3 py-1.5 rounded-lg border border-stone-700 font-medium transition-colors cursor-pointer"
               title="Settings, Tools & Account"
             >
@@ -425,6 +428,8 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="tab-more-tools"
               onClick={() => setShowToolsMenu(!showToolsMenu)}
+              aria-haspopup="menu"
+              aria-expanded={showToolsMenu}
               className={`py-2.5 px-3.5 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
                 activeSecondaryTool
                   ? 'border-amber-400 text-amber-400'
